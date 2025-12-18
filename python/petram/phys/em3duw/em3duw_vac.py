@@ -11,7 +11,7 @@ from petram.mfem_config import use_parallel
 import numpy as np
 
 from petram.phys.phys_model import PhysCoefficient, PhysConstant
-from petram.phys.emdpg3d.emdpg3d_base import EM3DUW_Domain
+from petram.phys.em3duw.em3duw_base import EM3DUW_Domain
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('EM3DUW_Vac')

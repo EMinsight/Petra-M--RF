@@ -2,10 +2,10 @@ from petram.phys.vtable import VtableElement, Vtable
 from petram.phys.phys_model import Phys
 from petram.model import Domain, Bdry, Pair
 from petram.mfem_config import use_parallel
-from petram.phys.emdpg3d.emdpg3d_model import EMDPG3D_Bdry
+from petram.phys.em3duw.emdpg3d_model import EM3DUW_Bdry
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('EM3D_PEC')
+dprint1, dprint2, dprint3 = debug.init_dprints('EM3DUW_PEC')
 
 if use_parallel:
     import mfem.par as mfem
@@ -18,9 +18,9 @@ data = (('label1', VtableElement(None,
                                  tip="Essential Homogenous BC")),)
 
 def bdry_constraints():
-   return [EMDPG3D_PEC]
+   return [EM3DUW_PEC]
 
-class EMDPG3D_PEC(EMDPG3D_Bdry):
+class EM3DUW_PEC(EM3DUW_Bdry):
     has_essential = True
     nlterms = []
     vt = Vtable(data)

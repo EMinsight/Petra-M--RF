@@ -10,12 +10,13 @@ import traceback
 from petram.model import Domain, Bdry, Pair
 from petram.phys.phys_model import Phys
 from petram.phys.common.em_base import EMPhysModule
-from petram.phys.emdpg3d.emdpg3d_base import EM3DUW_Bdry
-from petram.phys.emdpg3d.emdpg3d_vac import EM3DUW_Vac
+from petram.phys.em3duw.em3duw_base import EM3DUW_Bdry
+from petram.phys.em3duw.em3duw_vac import EM3DUW_Vac
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('EM3DUWModel')
 
+model_basename = 'EM3DUW'
 
 # define variable for this BC.
 data = (('Einit', VtableElement('Einit', type='float',
