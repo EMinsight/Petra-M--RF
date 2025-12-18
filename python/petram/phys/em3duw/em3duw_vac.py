@@ -11,10 +11,10 @@ from petram.mfem_config import use_parallel
 import numpy as np
 
 from petram.phys.phys_model import PhysCoefficient, PhysConstant
-from petram.phys.emdpg3d.emdpg3d_base import EMDPG3D_Domain
+from petram.phys.emdpg3d.emdpg3d_base import EM3DUW_Domain
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('EM3D_Vac')
+dprint1, dprint2, dprint3 = debug.init_dprints('EM3DUW_Vac')
 
 if use_parallel:
     import mfem.par as mfem
@@ -57,10 +57,10 @@ def Mu_Coeff(exprs, ind_vars, l, g, omega, cnorm):
 
 
 def domain_constraints():
-    return [EMDPG3D_Vac]
+    return [EM3DUW_Vac]
 
 
-class EMDPG3D_Vac(EMDPG3D_Domain):
+class EM3DUW_Vac(EM3DUW_Domain):
     vt = Vtable(data)
     # nlterms = ['epsilonr']
 

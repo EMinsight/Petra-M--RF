@@ -1,7 +1,7 @@
 import numpy as np
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('EMDPG3DModel')
+dprint1, dprint2, dprint3 = debug.init_dprints('EM3DUWbase')
 
 from petram.model import Domain, Bdry, Pair
 from petram.phys.phys_model import Phys, PhysModule, VectorPhysCoefficient
@@ -21,15 +21,15 @@ class Einit(VectorPhysCoefficient):
        else: val =  v.imag
        return val
 
-class EMDPG3D_Domain(Domain, Phys):
+class EM3DUW_Domain(Domain, Phys):
     has_3rd_panel = True    
     vt3  = Vtable(data)   
     def __init__(self, **kwargs):
-        super(EMDPG3D_Domain, self).__init__(**kwargs)
+        super(EM3DUW_Domain, self).__init__(**kwargs)
         Phys.__init__(self)
         
     def attribute_set(self, v):
-        super(EMDPG3D_Domain, self).attribute_set(v)
+        super(EM3DUW_Domain, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = []
         return v
@@ -45,15 +45,15 @@ class EMDPG3D_Domain(Domain, Phys):
                        real = real)
         return self.restrict_coeff(coeff, engine, vec = True)
 
-class EMDPG3D_Bdry(Bdry, Phys):
+class EM3DUW_Bdry(Bdry, Phys):
     has_3rd_panel = True        
     vt3  = Vtable(data)   
     def __init__(self, **kwargs):
-        super(EMDPG3D_Bdry, self).__init__(**kwargs)
+        super(EM3DUW_Bdry, self).__init__(**kwargs)
         Phys.__init__(self)
         
     def attribute_set(self, v):
-        super(EM3D_Bdry, self).attribute_set(v)
+        super(EM3DUW_Bdry, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = []
         return v

@@ -75,11 +75,11 @@ class EMDPG3D_DefBdry(EMDPG3D_Bdry):
     vt = Vtable(data2)
 
     def __init__(self, **kwargs):
-        super(EMDPG3D_DefBdry, self).__init__(**kwargs)
+        super(EM3DUW_DefBdry, self).__init__(**kwargs)
         Phys.__init__(self)
 
     def attribute_set(self, v):
-        super(EMDPG3D_DefBdry, self).attribute_set(v)
+        super(EM3DUW_DefBdry, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = ['remaining']
         return v
@@ -88,16 +88,16 @@ class EMDPG3D_DefBdry(EMDPG3D_Bdry):
         return []
 
 
-class EMDPG3D_DefPair(Pair, Phys):
+class EM3DUW_DefPair(Pair, Phys):
     can_delete = False
     is_essential = False
 
     def __init__(self, **kwargs):
-        super(EMDPG3D_DefPair, self).__init__(**kwargs)
+        super(EM3DUW_DefPair, self).__init__(**kwargs)
         Phys.__init__(self)
 
     def attribute_set(self, v):
-        super(EMDPG3D_DefPair, self).attribute_set(v)
+        super(EM3DUW_DefPair, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = []
         return v
@@ -106,16 +106,16 @@ class EMDPG3D_DefPair(Pair, Phys):
         return []
 
 
-class EMDPG3D(EMPhysModule):
+class EM3DUW(EMPhysModule):
     der_var_base = ['Bx', 'By', 'Bz']
     der_var_vec = ['B']
     geom_dim = 3
 
     def __init__(self, **kwargs):
-        super(EMDPG3D, self).__init__(**kwargs)
-        self['Domain'] = EMDPG3D_DefDomain()
-        self['Boundary'] = EMDPG3D_DefBdry()
-        self['Pair'] = EMDPG3D_DefPair()
+        super(EM3DUW, self).__init__(**kwargs)
+        self['Domain'] = EM3DUW_DefDomain()
+        self['Boundary'] = EM3DUW_DefBdry()
+        self['Pair'] = EM3DUW_DefPair()
 
     @property
     def dep_vars(self):
@@ -144,7 +144,7 @@ class EMDPG3D(EMPhysModule):
                 (v[3], 'ND_Trace_FECollection'),)
 
     def attribute_set(self, v):
-        v = super(EMDPG3D, self).attribute_set(v)
+        v = super(EM3DUW, self).attribute_set(v)
         v["element"] = ', '.join(
             ('L2_FECollection', 'L2_FECollection', 'ND_Trace_FECollection', 'ND_Trace_FECollection'))
         v["freq_txt"] = "1.0e9"
@@ -154,51 +154,51 @@ class EMDPG3D(EMPhysModule):
         return v
 
     def panel1_param(self):
-        panels = super(EMDPG3D, self).panel1_param()
+        panels = super(EM3DUW, self).panel1_param()
         a, b = self.get_var_suffix_var_name_panel()
         panels.extend([  # self.make_param_panel('freq',  self.freq_txt),
             ["independent vars.", self.ind_vars, 0, {}],
             a,
             ["dep. vars.", ','.join(self.dep_vars), 2, {}],
-            ["ns vars.", ','.join(EMDPG3D.der_var_base), 2, {}], ])
+            ["ns vars.", ','.join(EM3DUW.der_var_base), 2, {}], ])
 
         return panels
 
     def get_panel1_value(self):
         names = ', '.join(self.dep_vars)
         names2 = ', '.join(list(self.get_default_ns()))
-        val = super(EMDPG3D, self).get_panel1_value()
+        val = super(EM3DUW, self).get_panel1_value()
         val.extend([  # self.freq_txt,
             self.ind_vars, self.dep_vars_suffix,
             names, names2, ])
         return val
 
     def import_panel1_value(self, v):
-        v = super(EMDPG3D, self).import_panel1_value(v)
+        v = super(EM3DUW, self).import_panel1_value(v)
         # self.freq_txt = str(v[0])
         self.ind_vars = str(v[0])
         self.dep_vars_suffix = str(v[1])
 
     def get_possible_bdry(self):
-        if EMDPG3D._possible_constraints is None:
+        if EM3DUW._possible_constraints is None:
             self._set_possible_constraints('emdpg3d')
-        bdrs = super(EMDPG3D, self).get_possible_bdry()
-        return EMDPG3D._possible_constraints['bdry'] + bdrs
+        bdrs = super(EM3DUW, self).get_possible_bdry()
+        return EM3DUW._possible_constraints['bdry'] + bdrs
 
     def get_possible_domain(self):
-        if EMDPG3D._possible_constraints is None:
+        if EM3DUW._possible_constraints is None:
             self._set_possible_constraints('emdpg3d')
 
-        doms = super(EMDPG3D, self).get_possible_domain()
-        return EMDPG3D._possible_constraints['domain'] + doms
+        doms = super(EM3DUW, self).get_possible_domain()
+        return EM3DUW._possible_constraints['domain'] + doms
 
     def get_possible_edge(self):
         return []
 
     def get_possible_pair(self):
-        if EMDPG3D._possible_constraints is None:
+        if EM3DUW._possible_constraints is None:
             self._set_possible_constraints()
-        return EMDPG3D._possible_constraints['pair']
+        return EM3DUW._possible_constraints['pair']
 
     def add_variables(self, v, name, solr, soli=None):
         from petram.helper.variables import add_coordinates
@@ -211,7 +211,7 @@ class EMDPG3D(EMPhysModule):
 
         from petram.helper.eval_deriv import eval_curl
 
-        v = super(EMDPG3D, self).add_variables(v, name, solr, soli)
+        v = super(EM3DUW, self).add_variables(v, name, solr, soli)
 
         freq, omega = self.get_freq_omega()
 
