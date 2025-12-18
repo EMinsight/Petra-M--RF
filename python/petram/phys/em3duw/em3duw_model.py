@@ -10,11 +10,11 @@ import traceback
 from petram.model import Domain, Bdry, Pair
 from petram.phys.phys_model import Phys
 from petram.phys.common.em_base import EMPhysModule
-from petram.phys.emdpg3d.emdpg3d_base import EMDPG3D_Bdry
-from petram.phys.emdpg3d.emdpg3d_vac import EMDPG3D_Vac
+from petram.phys.emdpg3d.emdpg3d_base import EM3DUW_Bdry
+from petram.phys.emdpg3d.emdpg3d_vac import EM3DUW_Vac
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('EMDPG3DModel')
+dprint1, dprint2, dprint3 = debug.init_dprints('EM3DUWModel')
 
 
 # define variable for this BC.
@@ -36,12 +36,12 @@ class Einit(VectorPhysCoefficient):
         return val
 
 
-class EMDPG3D_DefDomain(EMDPG3D_Vac):
+class EM3DUW_DefDomain(EM3DUW_Vac):
     can_delete = False
     nlterms = []
 
     def __init__(self, **kwargs):
-        super(EMDPG3D_DefDomain, self).__init__(**kwargs)
+        super(EM3DUW_DefDomain, self).__init__(**kwargs)
 
     def panel1_param(self):
         return [['Default Domain (Vac)',   "eps_r=1, mu_r=1, sigma=0",  2, {}], ]
@@ -68,7 +68,7 @@ data2 = (('label1', VtableElement(None,
                                   tip="this is a natural BC")),)
 
 
-class EMDPG3D_DefBdry(EMDPG3D_Bdry):
+class EM3DUW_DefBdry(EM3DUW_Bdry):
     can_delete = False
     is_essential = False
     nlterms = []
