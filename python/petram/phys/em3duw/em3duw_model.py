@@ -1,6 +1,6 @@
 
 '''
-DPG version of EM3D
+UltraWeak-DPG version of EM3D
 '''
 from petram.phys.phys_model import Phys, PhysModule, VectorPhysCoefficient
 from petram.phys.vtable import VtableElement, Vtable
@@ -182,13 +182,13 @@ class EM3DUW(EMPhysModule):
 
     def get_possible_bdry(self):
         if EM3DUW._possible_constraints is None:
-            self._set_possible_constraints('emdpg3d')
+            self._set_possible_constraints('em3duw')
         bdrs = super(EM3DUW, self).get_possible_bdry()
         return EM3DUW._possible_constraints['bdry'] + bdrs
 
     def get_possible_domain(self):
         if EM3DUW._possible_constraints is None:
-            self._set_possible_constraints('emdpg3d')
+            self._set_possible_constraints('em3duw')
 
         doms = super(EM3DUW, self).get_possible_domain()
         return EM3DUW._possible_constraints['domain'] + doms
@@ -307,27 +307,42 @@ class EM3DUW(EMPhysModule):
         elif name.startswith('psi'):
             add_scalar(v, 'psi', suffix, ind_vars, solr, soli)
 
-        # collect all definition from children
-        # for mm in self.walk():
-        #    if not mm.enabled: continue
-        #    if mm is self: continue
-        #    mm.add_domain_variables(v, name, suffix, ind_vars,
-        #                            solr, soli)
-        #    mm.add_bdr_variables(v, name, suffix, ind_vars,
-        #                            solr, soli)
 
         return v
 
-    def get_fes_for_dep(self, unknown_name, soldict):
-        keys = soldict.keys()
-        for k in keys:
-            if unknown_name.startswith('psi'):
-                if k.startswith('psi'):
-                    break
+    def has_diag_form(self, kfes1):
+        if kfes1 < 4:
+            return True
+        return False
+
+    def get_diagform_callable(self, fes_arr):
+        def callable(fes_arr=fes_arr):
+            
+            from petram.mfem_config import use_parallel
+            if use_parallel:
+                import mfem.par as mfem
+                dpg_form = mfem.dpg.ParComplexDPGWeakForm                
+                
             else:
-                if k.startswith('E'):
-                    break
-        sol = soldict[k]
-        solr = sol[0]
-        soli = sol[1] if len(sol) > 1 else None
-        return solr, soli
+                import mfem.ser as mfem                
+                dpg_form = mfem.dpg.ComplexDPGWeakForm
+                
+            order=self.order
+            
+            delta_order = 1
+            test_order = order + delta_order
+            dim = 3
+       
+            F_fec = mfem.ND_FECollection(test_order, dim)
+            G_fec = mfem.ND_FECollection(test_order, dim)
+
+            test_fec = (F_fec, G_fec)
+            trial_fes = fes_arr
+
+            form = dpg_form(trial_fes,test_fec)
+            form._test_fec = test_fec
+            form._trial_fes = trial_fes
+
+            return form
+        
+        return callable

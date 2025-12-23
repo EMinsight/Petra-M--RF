@@ -34,26 +34,22 @@ data = (('epsilonr', VtableElement('epsilonr', type='complex',
                                 default=0.0,
                                 tip="contuctivity")),)
 
+def eps_cf(exprs1, exprs2, ind_vars, l, g, omega, e_norm):
+    #
+    # (e_r e0 - i sgima/w)/e_norm
+    #   cnorm is typically e0
+    #
+    coeff1 = SCoeff(exprs1, ind_vars, l, g, return_complex=True, scale=epsilon0/e_norm)
+    coeff2 = SCoeff(exprs2, ind_vars, l, g, return_complex=True, scale=-1j/omega/e_norm)
 
-def Epsilon_Coeff(exprs, ind_vars, l, g, omega, cnorm):
-    # - omega^2 * epsilon0 * epsilonr
-    fac = -epsilon0 * omega * omega * cnorm
+    ans = coeff1 + coeff2
+
+def mu_cf(exprs, ind_vars, l, g, omega, mu_norm):
+    # mu_r *mu_0/mu_norm
+    fac = mu0/mu_norm
     coeff = SCoeff(exprs, ind_vars, l, g, return_complex=True, scale=fac)
     return coeff
 
-
-def Sigma_Coeff(exprs, ind_vars, l, g, omega, cnorm):
-    # v = - 1j * self.omega * v
-    fac = - 1j * omega * cnorm
-    coeff = SCoeff(exprs, ind_vars, l, g, return_complex=True, scale=fac)
-    return coeff
-
-
-def Mu_Coeff(exprs, ind_vars, l, g, omega, cnorm):
-    # v = mu * v
-    fac = mu0/cnorm
-    coeff = SCoeff(exprs, ind_vars, l, g, return_complex=True, scale=fac)
-    return coeff
 
 
 def domain_constraints():
@@ -79,28 +75,174 @@ class EM3DUW_Vac(EM3DUW_Domain):
         ind_vars = self.get_root_phys().ind_vars
         l = self._local_ns
         g = self._global_ns
-        coeff1 = Epsilon_Coeff([e], ind_vars, l, g, omega, cnorm)
-        coeff2 = Mu_Coeff([m], ind_vars, l, g, omega, cnorm)
-        coeff3 = Sigma_Coeff([s], ind_vars, l, g, omega, cnorm)
+        coeff1 = eps_cf([e], [s], ind_vars, l, g, omega, epsilon0)
+        coeff2 = mu_cf([m], ind_vars, l, g, omega, mu0)
 
-        dprint1("epsr, mur, sigma " + str(coeff1) +
-                " " + str(coeff2) + " " + str(coeff3))
+        return coeff1, coeff2
 
-        return coeff1, coeff2, coeff3
+    def add_dpg_integrator(self, engine, coeff, adder, integrator, sp1, sp2,
+                           idx=None,  transpose=False, real=True):
+        if coeff is None:
+            return
+
+        if real:
+            coeff = coeff.get_real_coefficient()
+        else:
+            ceoff = coeff.get_imag_coefficient()
+
+        
+        if coeff[0] is None:
+            return
+        elif isinstance(coeff[0], mfem.Coefficient):
+            coeff = self.restrict_coeff(coeff, engine, idx=idx)
+        elif isinstance(coeff[0], mfem.VectorCoefficient):
+            coeff = self.restrict_coeff(coeff, engine, vec=True, idx=idx)
+        elif isinstance(coeff[0], mfem.MatrixCoefficient):
+            coeff = self.restrict_coeff(coeff, engine, matrix=True, idx=idx)
+        elif issubclass(integrator, mfem.PyBilinearFormIntegrator):
+            pass
+        else:
+            assert False, "Unknown coefficient type: " + str(type(coeff[0]))
+
+        args = list(coeff)
+        args.extend(itg_params)
+
+        kwargs = {}
+
+        itg = integrator(coeff)
+        itg._linked_coeff = coeff
+        
+        if transpose:
+            itg2 = mfem.TransposeIntegrator(itg)
+            itg2._link = itg
+        else:
+            if ir is not None:
+                itg.SetIntRule(ir)
+            itg2 = itg
+
+        if real:
+            adder(itg2, None, sp1, sp2)
+        else:
+            adder(None, itg2, sp1, sp2)
+        return itg
+    
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
+        if not real:
+            return 
         # e, m, s
-        coeff1, coeff2, coeff3 = self.get_coeffs()
-        coeff2 = coeff2**(-1)
+        coeff1, coeff2 = self.get_coeffs()
+        cf1 = eps_cf*(-1j*omega)
+        cf2 = mu_cf*(1j*omega)
+        cf3 = mu_cf*(-1j*omega)                       
+        cf4 = eps_cf*(1j*omega)
+        cf5 = eps_cf**2(omega**2)
+        
         self.set_integrator_realimag_mode(real)
 
-        assert False, "not implemented"
         if kfes != 0:
             return
         if real:
             dprint1("Add BF contribution(real)" + str(self._sel_index))
         else:
             dprint1("Add BF contribution(imag)" + str(self._sel_index))
+
+        print(a, kfes)
+        one = mfem.ConstantCoefficient(1.0)
+    
+        TrialSpace = {"E_space": 0
+                      "H_space": 1
+                      "hatE_space": 2
+                      "hatE_space": 3}
+        TextSpace = {"F_space": 0
+                     "G_space": 1}
+        
+        a.StoreMatrices()  # needed for AMR
+
+        # (E,∇ × F)
+        self.add_integrator(engine, 'one', one,
+                            a, AddTrialIntegrator
+                            mfem.CurlCurlIntegrator,
+                            transpose=True)
+
+        
+        a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
+                             None,
+                             TrialSpace["E_space"],
+                             TestSpace["F_space"])
+        # -i ω ϵ (E , G) = i (- ω ϵ E, G)
+        a.AddTrialIntegrator(None,
+                             mfem.TransposeIntegrator(
+                                 mfem.VectorFEMassIntegrator(cf1)),
+                             TrialSpace["E_space"],
+                             TestSpace["G_space"])
+        #  (H,∇ × G)
+        a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
+                             None,
+                             TrialSpace["H_space"],
+                             TestSpace["G_space"])
+        # < n×Ĥ ,G>
+        a.AddTrialIntegrator(mfem.TangentTraceIntegrator(), None,
+                             TrialSpace["hatH_space"],
+                             TestSpace["G_space"])
+        # test integrators
+        # (∇×G ,∇× δG)
+        a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
+                            TestSpace["G_space"],
+                            TestSpace["G_space"])
+        # (G,δG)
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
+                            TestSpace["G_space"],
+                            TestSpace["G_space"])
+
+        # i ω μ (H, F)
+        a.AddTrialIntegrator(None, mfem.TransposeIntegrator(
+            mfem.VectorFEMassIntegrator(cf2)),
+            TrialSpace["H_space"],
+            TestSpace["F_space"])
+                              
+        # < n×Ê,F>
+        a.AddTrialIntegrator(mfem.TangentTraceIntegrator(), None,
+                             TrialSpace["hatE_space"],
+                             TestSpace["F_space"])
+
+        # test integrators
+        # (∇×F,∇×δF)
+        a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
+                            TestSpace["F_space"],
+                            TestSpace["F_space"])
+        # (F,δF)
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
+                            TestSpace["F_space"],
+                            TestSpace["F_space"])
+        # μ^2 ω^2 (F,δF)
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(mu2omeg2_cf), None,
+                            TestSpace["F_space"],
+                            TestSpace["F_space"])
+        # -i ω μ (F,∇ × δG) = i (F, -ω μ ∇ × δ G)
+
+        a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf3),
+                            TestSpace["F_space"],
+                            TestSpace["G_space"])
+        # -i ω ϵ (∇ × F, δG)
+        a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf1),
+                            TestSpace["F_space"],
+                            TestSpace["G_space"])
+        # i ω μ (∇ × G,δF)
+        a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf2),
+                            TestSpace["G_space"],
+                            TestSpace["F_space"])
+        
+        # i ω ϵ (G, ∇ × δF )
+        a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf4),
+                            TestSpace["G_space"],
+                            TestSpace["F_space"])
+        # ϵ^2 ω^2 (G,δG)
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(cf5.get_real_coefficient()),
+                            mfem.VectorFEMassIntegrator(cf5.get_imag_coefficient()),
+                            TestSpace["G_space"],
+                            TestSpace["G_space"])
+        
 
     def add_domain_variables(self, v, n, suffix, ind_vars):
         from petram.helper.variables import add_constant

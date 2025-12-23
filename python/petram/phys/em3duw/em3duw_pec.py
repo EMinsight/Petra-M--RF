@@ -2,7 +2,7 @@ from petram.phys.vtable import VtableElement, Vtable
 from petram.phys.phys_model import Phys
 from petram.model import Domain, Bdry, Pair
 from petram.mfem_config import use_parallel
-from petram.phys.em3duw.emdpg3d_model import EM3DUW_Bdry
+from petram.phys.em3duw.em3duw_model import EM3DUW_Bdry
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('EM3DUW_PEC')
