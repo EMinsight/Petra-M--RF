@@ -345,4 +345,9 @@ class EM3DUW(EMPhysModule):
 
             return form
         
-        return callable
+        def callable_none(fes_arr=fes_arr):
+            # we use ComplexDPGWeakform.
+            # imaginary part is not filled separately
+            return None
+            
+        return callable, callable_none
