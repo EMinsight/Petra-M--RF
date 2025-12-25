@@ -108,8 +108,6 @@ class EM3DUW_DefPair(Pair, Phys):
 
 
 class EM3DUW(EMPhysModule):
-    der_var_base = ['Bx', 'By', 'Bz']
-    der_var_vec = ['B']
     geom_dim = 3
 
     def __init__(self, **kwargs):
@@ -132,6 +130,17 @@ class EM3DUW(EMPhysModule):
     def dep_vars_base(self):
         ret = ['E', 'B', 'Et', 'Bt']
         return ret
+
+    @property
+    def vdim(self):
+        return [3, 3, 1, 1]
+
+    def fec_order(self, idx):
+        self.vt_order.preprocess_params(self)
+        print("!!!!", self.order)
+        if idx == 0 or idx == 1:
+            return self.order-1
+        return self.order
 
     def get_fec_type(self, idx):
         values = ['L2v', 'L2v', 'ND_Trace', 'ND_Trace']
@@ -307,7 +316,6 @@ class EM3DUW(EMPhysModule):
         elif name.startswith('psi'):
             add_scalar(v, 'psi', suffix, ind_vars, solr, soli)
 
-
         return v
 
     def has_diag_form(self, kfes1):
@@ -317,37 +325,74 @@ class EM3DUW(EMPhysModule):
 
     def get_diagform_callable(self, fes_arr):
         def callable(fes_arr=fes_arr):
-            
+
             from petram.mfem_config import use_parallel
             if use_parallel:
                 import mfem.par as mfem
-                dpg_form = mfem.dpg.ParComplexDPGWeakForm                
-                
+                dpg_form = mfem.dpg.ParComplexDPGWeakForm
+
             else:
-                import mfem.ser as mfem                
+                import mfem.ser as mfem
                 dpg_form = mfem.dpg.ComplexDPGWeakForm
-                
-            order=self.order
-            
+
+            order = self.order
+
             delta_order = 1
             test_order = order + delta_order
             dim = 3
-       
+
             F_fec = mfem.ND_FECollection(test_order, dim)
             G_fec = mfem.ND_FECollection(test_order, dim)
 
             test_fec = (F_fec, G_fec)
             trial_fes = fes_arr
 
-            form = dpg_form(trial_fes,test_fec)
+            form = dpg_form(trial_fes, test_fec)
             form._test_fec = test_fec
             form._trial_fes = trial_fes
 
             return form
-        
+
         def callable_none(fes_arr=fes_arr):
             # we use ComplexDPGWeakform.
             # imaginary part is not filled separately
             return None
-            
+
         return callable, callable_none
+
+    def get_diagform2mat(self, real=True):
+        from petram.mfem_config import use_parallel
+        if use_parallel:
+            import mfem.par as mfem
+            to_opr = mfem.Opr2BlockOpr
+            to_matrix = mfem.Opr2HypreParMatrix
+
+        else:
+            import mfem.ser as mfem
+            to_opr = mfem.Opr2BlockMatrix
+            to_matrix = mfem.Opr2SparseMatrix
+
+        def converter(a):
+
+            Ah = mfem.OperatorPtr()
+            inta = mfem.intArray()
+            a.FormSystemMatrix(inta, Ah)
+
+            Ahc = Ah.AsComplexOperator()
+            BlockA_r = to_opr(Ahc.real())
+            BlockA_i = to_opr(Ahc.imag())
+
+            num_blocks = BlockA_r.NumRowBlocks()
+
+            # this is to debug matrix
+            mats = []
+            for i in range(num_blocks):
+                for j in range(num_blocks):
+                    mats.append((to_matrix(BlockA_r.GetBlock(i, j)),
+                                 to_matrix(BlockA_i.GetBlock(i, j)),))
+                    # print(to_matrix(BlockA_r.GetBlock(i, j)))
+                    # print(to_matrix(BlockA_i.GetBlock(i, j)))
+
+            return mats
+
+        return converter

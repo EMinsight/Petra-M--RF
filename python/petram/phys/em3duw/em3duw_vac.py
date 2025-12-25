@@ -179,13 +179,13 @@ class EM3DUW_Vac(EM3DUW_Domain):
         # < n×Ê,F>        
              self.add_dpg_integrator(engine, None, a.AddTrialIntegrator,
                                      mfem.TangentTraceIntegrator,
-                                     TrialSpace["hatH_space"],                                     
+                                     TrialSpace["hatH_space"],
                                      TestSpace["G_space"],
                                      transpose=False,)
              self.add_dpg_integrator(engine, None, a.AddTrialIntegrator,
                                      mfem.TangentTraceIntegrator,
-                                     TrialSpace["hatH_space"],                                     
-                                     TestSpace["G_space"],
+                                     TrialSpace["hatE_space"],
+                                     TestSpace["F_space"],
                                      transpose=False,)
         #a.AddTrialIntegrator(mfem.TangentTraceIntegrator(), None,
         #                     TrialSpace["hatH_space"],
