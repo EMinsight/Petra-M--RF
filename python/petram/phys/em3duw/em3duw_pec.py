@@ -26,15 +26,15 @@ class EM3DUW_PEC(EM3DUW_Bdry):
     vt = Vtable(data)
 
     def get_essential_idx(self, kfes):
-        if kfes == 0:
+        if kfes == 2:  # Et component 
             return self._sel_index
         else:
             return []
 
     def apply_essential(self, engine, gf, kfes, real=False,
                         **kwargs):
-
-        if kfes != 0:
+        print(kfes)
+        if kfes != 2:
             return
         if real:
             dprint1("Apply Ess. E=0 (real)" + str(self._sel_index))
