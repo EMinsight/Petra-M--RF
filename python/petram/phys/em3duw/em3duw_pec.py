@@ -46,10 +46,9 @@ class EM3DUW_PEC(EM3DUW_Bdry):
         for idx in self._sel_index:
             bdr_attr[idx-1] = 1
 
-        if kfes == 0:
-            coeff1 = mfem.VectorArrayCoefficient(3)
-            coeff1.Set(0, mfem.ConstantCoefficient(0.0))
-            coeff1.Set(1, mfem.ConstantCoefficient(0.0))
-            coeff1.Set(2, mfem.ConstantCoefficient(0.0))
-            gf.ProjectBdrCoefficientTangent(coeff1,
-                                            mfem.intArray(bdr_attr))
+        coeff1 = mfem.VectorArrayCoefficient(3)
+        coeff1.Set(0, mfem.ConstantCoefficient(0.0))
+        coeff1.Set(1, mfem.ConstantCoefficient(0.0))
+        coeff1.Set(2, mfem.ConstantCoefficient(0.0))
+        gf.ProjectBdrCoefficientTangent(coeff1,
+                                        mfem.intArray(bdr_attr))

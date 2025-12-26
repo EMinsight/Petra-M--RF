@@ -313,7 +313,6 @@ class EM3DUW(EMPhysModule):
     def add_variables(self, v, name, solr, soli=None):
         from petram.helper.variables import add_component_expression as addc_expression
         from petram.helper.variables import (add_coordinates,
-                                             add_scalar,
                                              add_components,
                                              add_expression,
                                              add_surf_normals,
@@ -352,10 +351,13 @@ class EM3DUW(EMPhysModule):
             else:
                 v[name] = PlaceholderVariable(name)
 
-        if name.startswith('B') and not name.startswith('Bt'):
+        if name.startswith('Bt'):
             add_E_B(name)
-
-        if name.startswith('E') and not name.startswith('Et'):
+        elif name.startswith('Et'):
+            add_E_B(name)
+        elif name.startswith('B'):
+            add_E_B(name)
+        elif name.startswith('E'):
             add_E_B(name)
             add_expression(v, 'normE', suffix, ind_vars,
                            '(conj(Ex)*Ex + conj(Ey)*Ey +conj(Ez)*Ez)**(0.5)',
@@ -418,9 +420,6 @@ class EM3DUW(EMPhysModule):
             addc_expression(v, 'Js', suffix, ind_vars,
                             '(cross([nx, ny, nz], inv(mur).dot(B))/mu0)[2]',
                             ['nx', 'ny', 'nz', 'B', 'mur', 'mu0'], 2)
-
-        elif name.startswith('psi'):
-            add_scalar(v, 'psi', suffix, ind_vars, solr, soli)
 
         return v
 
