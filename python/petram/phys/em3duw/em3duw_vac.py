@@ -87,50 +87,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
         
         return cf1, cf2, cf3, cf4, cf5, cf6
 
-    def add_dpg_integrator(self, engine, coeff, adder, integrator, sp1, sp2,
-                           idx=None,  transpose=False, real=True):
-        if coeff is not None:
-            if hasattr(coeff, "get_real_coefficient"):
-                if real:
-                    coeff = coeff.get_real_coefficient()
-                else:
-                    ceoff = coeff.get_imag_coefficient()
-
-
-            if isinstance(coeff, mfem.Coefficient):
-                coeff = self.restrict_coeff(coeff, engine, idx=idx)
-            elif isinstance(coeff, mfem.VectorCoefficient):
-                coeff = self.restrict_coeff(coeff, engine, vec=True, idx=idx)
-            elif isinstance(coeff, mfem.MatrixCoefficient):
-                coeff = self.restrict_coeff(coeff, engine, matrix=True, idx=idx)
-            elif issubclass(integrator, mfem.PyBilinearFormIntegrator):
-                pass
-            else:
-                assert False, "Unknown coefficient type: " + str(type(coeff[0]))
-
-            itg = integrator(coeff)
-            itg._linked_coeff = coeff
-        else:
-            itg = integrator()
-            
-        if transpose:
-            itg2 = mfem.TransposeIntegrator(itg)
-            itg2._link = itg
-        else:
-            itg2 = itg
-
-        if real:
-            adder(itg2, None, sp1, sp2)
-        else:
-            adder(None, itg2, sp1, sp2)
-        return itg
-    
-
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-        if not real:
-            return 
-        # e, m, s
-        
         cf1, cf2, cf3, cf4, cf5, cf6 = self.get_coeffs()
         
         if kfes != 0:
@@ -140,99 +97,9 @@ class EM3DUW_Vac(EM3DUW_Domain):
         else:
             return 
 
-        print(a)
-        one = mfem.ConstantCoefficient(1.0)
-    
-        TrialSpace = {"E_space": 0,
-                      "H_space": 1,
-                      "hatE_space": 2,
-                      "hatH_space": 3}
-        TestSpace = {"F_space": 0,
-                     "G_space": 1}
-        
-        a.StoreMatrices()  # needed for AMR
+        TrialSpace, TestSpace = self.space_idx()
+        #a.StoreMatrices()  # needed for AMR
 
-        # (E,∇ × F)
-        # (H,∇ × G)        
-        if real:                
-             self.add_dpg_integrator(engine,  one, a.AddTrialIntegrator,
-                                mfem.MixedCurlIntegrator,
-                                TrialSpace["E_space"],
-                                TestSpace["F_space"],
-                                transpose=True)
-             self.add_dpg_integrator(engine, one, a.AddTrialIntegrator,
-                                mfem.MixedCurlIntegrator,                                
-                                TrialSpace["H_space"],
-                                TestSpace["G_space"],
-                                transpose=True)
-        
-        #a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
-        #                     None,
-        #                     TrialSpace["E_space"],
-        #                     TestSpace["F_space"])
-        #a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
-        #                     None,
-        #                     TrialSpace["H_space"],
-        #                     TestSpace["G_space"])
-        
-        # < n×Ĥ ,G>
-        # < n×Ê,F>        
-             self.add_dpg_integrator(engine, None, a.AddTrialIntegrator,
-                                     mfem.TangentTraceIntegrator,
-                                     TrialSpace["hatH_space"],
-                                     TestSpace["G_space"],
-                                     transpose=False,)
-             self.add_dpg_integrator(engine, None, a.AddTrialIntegrator,
-                                     mfem.TangentTraceIntegrator,
-                                     TrialSpace["hatE_space"],
-                                     TestSpace["F_space"],
-                                     transpose=False,)
-        #a.AddTrialIntegrator(mfem.TangentTraceIntegrator(), None,
-        #                     TrialSpace["hatH_space"],
-        #                     TestSpace["G_space"])
-        #a.AddTrialIntegrator(mfem.TangentTraceIntegrator(), None,
-        #                     TrialSpace["hatE_space"],
-        #                     TestSpace["F_space"])
-        
-        # test integrators
-        # (∇×G ,∇× δG)
-        # (G,δG)
-        # (∇×F,∇×δF)
-        # (F,δF)        
-             self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
-                                     mfem.CurlCurlIntegrator,
-                                     TestSpace["G_space"],                                     
-                                     TestSpace["G_space"],
-                                     transpose=False,)
-             self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
-                                     mfem.VectorFEMassIntegrator,
-                                     TestSpace["G_space"],                                     
-                                     TestSpace["G_space"],
-                                     transpose=False,)
-             self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
-                                     mfem.CurlCurlIntegrator,
-                                     TestSpace["F_space"],                                     
-                                     TestSpace["F_space"],
-                                     transpose=False,)
-             self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
-                                     mfem.VectorFEMassIntegrator,
-                                     TestSpace["F_space"],                                     
-                                     TestSpace["F_space"],
-                                     transpose=False,)
-            
-        #a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
-        #                    TestSpace["G_space"],
-        #                    TestSpace["G_space"])
-        #a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
-        #                    TestSpace["G_space"],
-        #                    TestSpace["G_space"])
-        #a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
-        #                    TestSpace["F_space"],
-        #                    TestSpace["F_space"])
-        #a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
-        #                    TestSpace["F_space"],
-        #                    TestSpace["F_space"])
-        
         # -i ω ϵ (E , G) = i (- ω ϵ E, G)
         self.add_dpg_integrator(engine, cf1, a.AddTrialIntegrator,
                                 mfem.VectorFEMassIntegrator,

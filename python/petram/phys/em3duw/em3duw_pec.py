@@ -33,7 +33,6 @@ class EM3DUW_PEC(EM3DUW_Bdry):
 
     def apply_essential(self, engine, gf, kfes, real=False,
                         **kwargs):
-        print(kfes)
         if kfes != 2:
             return
         if real:

@@ -7,14 +7,20 @@ from petram.phys.vtable import VtableElement, Vtable
 import numpy as np
 import traceback
 
+from petram.mfem_config import use_parallel
 from petram.model import Domain, Bdry, Pair
 from petram.phys.phys_model import Phys
 from petram.phys.common.em_base import EMPhysModule
-from petram.phys.em3duw.em3duw_base import EM3DUW_Bdry
-from petram.phys.em3duw.em3duw_vac import EM3DUW_Vac
+from petram.phys.em3duw.em3duw_base import EM3DUW_Bdry, EM3DUW_Domain
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('EM3DUWModel')
+
+if use_parallel:
+    import mfem.par as mfem
+else:
+    import mfem.ser as mfem
+
 
 model_basename = 'EM3DUW'
 
@@ -37,18 +43,25 @@ class Einit(VectorPhysCoefficient):
         return val
 
 
-class EM3DUW_DefDomain(EM3DUW_Vac):
+class EM3DUW_DefDomain(EM3DUW_Domain):
     can_delete = False
     nlterms = []
 
     def __init__(self, **kwargs):
         super(EM3DUW_DefDomain, self).__init__(**kwargs)
 
+    def attribute_set(self, v):
+        super(EM3DUW_DefDomain, self).attribute_set(v)
+        v['sel_readonly'] = True
+        v['sel_index'] = ['all']
+        v['sel_index_txt'] = 'all'
+        return v
+
     def panel1_param(self):
-        return [['Default Domain (Vac)',   "eps_r=1, mu_r=1, sigma=0",  2, {}], ]
+        return [['Common contribs.',   "",  2, {}], ]
 
     def get_panel1_value(self):
-        return ["eps_r=1, mu_r=1, sigma=0", ]
+        return ["(E,∇ × F), (H,∇ × G),  \n(∇×G ,∇× δG), (G,δG), (∇×F,∇×δF), (F,δF) \n<n×Ĥ ,G>, < n×Ê,F>"]
 
     def import_panel1_value(self, v):
         pass
@@ -61,6 +74,90 @@ class EM3DUW_DefDomain(EM3DUW_Vac):
 
     def get_possible_child(self):
         return self.parent.get_possible_domain()
+
+    def has_bf_contribution(self, kfes):
+        if kfes == 0:
+            return True
+        else:
+            return False
+
+    def add_bf_contribution(self, engine, a, real=True, kfes=0):
+        if not real:
+            return
+        if real:
+            dprint1("Add BF contribution(complex)" + str(self._sel_index))
+        else:
+            return
+
+        TrialSpace, TestSpace = self.space_idx()
+        one = mfem.ConstantCoefficient(1.0)
+
+        # < n×Ĥ ,G>
+        # < n×Ê,F>
+        a.AddTrialIntegrator(mfem.TangentTraceIntegrator(), None,
+                             TrialSpace["hatH_space"],
+                             TestSpace["G_space"])
+        a.AddTrialIntegrator(mfem.TangentTraceIntegrator(), None,
+                             TrialSpace["hatE_space"],
+                             TestSpace["F_space"])
+        # (E,∇ × F)
+        # (H,∇ × G)
+        self.add_dpg_integrator(engine,  one, a.AddTrialIntegrator,
+                                mfem.MixedCurlIntegrator,
+                                TrialSpace["E_space"],
+                                TestSpace["F_space"],
+                                transpose=True)
+        self.add_dpg_integrator(engine, one, a.AddTrialIntegrator,
+                                mfem.MixedCurlIntegrator,
+                                TrialSpace["H_space"],
+                                TestSpace["G_space"],
+                                transpose=True)
+        # a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
+        #                     None,
+        #                     TrialSpace["E_space"],
+        #                     TestSpace["F_space"])
+        # a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
+        #                     None,
+        #                     TrialSpace["H_space"],
+        #                     TestSpace["G_space"])
+
+        # test integrators
+        # (∇×G ,∇× δG)
+        # (G,δG)
+        # (∇×F,∇×δF)
+        # (F,δF)
+        self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
+                                mfem.CurlCurlIntegrator,
+                                TestSpace["G_space"],
+                                TestSpace["G_space"],
+                                transpose=False,)
+        self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
+                                mfem.VectorFEMassIntegrator,
+                                TestSpace["G_space"],
+                                TestSpace["G_space"],
+                                transpose=False,)
+        self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
+                                mfem.CurlCurlIntegrator,
+                                TestSpace["F_space"],
+                                TestSpace["F_space"],
+                                transpose=False,)
+        self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
+                                mfem.VectorFEMassIntegrator,
+                                TestSpace["F_space"],
+                                TestSpace["F_space"],
+                                transpose=False,)
+        # a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
+        #                    TestSpace["G_space"],
+        #                    TestSpace["G_space"])
+        # a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
+        #                    TestSpace["G_space"],
+        #                    TestSpace["G_space"])
+        # a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
+        #                    TestSpace["F_space"],
+        #                    TestSpace["F_space"])
+        # a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
+        #                    TestSpace["F_space"],
+        #                    TestSpace["F_space"])
 
 
 data2 = (('label1', VtableElement(None,
@@ -135,9 +232,12 @@ class EM3DUW(EMPhysModule):
     def vdim(self):
         return [3, 3, 1, 1]
 
+    @vdim.setter
+    def vdim(self, val):
+        pass
+
     def fec_order(self, idx):
         self.vt_order.preprocess_params(self)
-        print("!!!!", self.order)
         if idx == 0 or idx == 1:
             return self.order-1
         return self.order
@@ -170,7 +270,7 @@ class EM3DUW(EMPhysModule):
             ["independent vars.", self.ind_vars, 0, {}],
             a,
             ["dep. vars.", ','.join(self.dep_vars), 2, {}],
-            ["ns vars.", ','.join(EM3DUW.der_var_base), 2, {}], ])
+            ["ns vars.", '', 2, {}], ])
 
         return panels
 
@@ -211,27 +311,21 @@ class EM3DUW(EMPhysModule):
         return EM3DUW._possible_constraints['pair']
 
     def add_variables(self, v, name, solr, soli=None):
-        from petram.helper.variables import add_coordinates
-        from petram.helper.variables import add_scalar
-        from petram.helper.variables import add_components
         from petram.helper.variables import add_component_expression as addc_expression
-        from petram.helper.variables import add_expression
-        from petram.helper.variables import add_surf_normals
-        from petram.helper.variables import add_constant
+        from petram.helper.variables import (add_coordinates,
+                                             add_scalar,
+                                             add_components,
+                                             add_expression,
+                                             add_surf_normals,
+                                             GFScalarVariable,
+                                             GFVectorVariable,
+                                             PlaceholderVariable)
 
         from petram.helper.eval_deriv import eval_curl
 
         v = super(EM3DUW, self).add_variables(v, name, solr, soli)
 
         freq, omega = self.get_freq_omega()
-
-        def evalB(gfr, gfi=None):
-            gfr, gfi, extra = eval_curl(gfr, gfi)
-            gfi /= omega   # real B
-            gfr /= -omega  # imag B
-            # flipping gfi and gfr so that it returns
-            # -i * (-gfr + i gfi) = gfi + i gfr
-            return gfi, gfr, extra
 
         ind_vars = [x.strip()
                     for x in self.ind_vars.split(',') if x.strip() != '']
@@ -246,11 +340,23 @@ class EM3DUW(EMPhysModule):
 
         from petram.phys.phys_const import mu0, epsilon0, q0
 
-        if name.startswith('E'):
+        def add_E_B(name):
+            for k, nn in enumerate(('x', 'y', 'z')):
+                name1 = name + nn
+                if solr is not None:
+                    v[name1] = GFScalarVariable(solr, soli, comp=k+1)
+                else:
+                    v[name1] = PlaceholderVariable(name1)
+            if solr is not None:
+                v[name] = GFVectorVariable(solr, soli)
+            else:
+                v[name] = PlaceholderVariable(name)
 
-            add_components(v, 'E', suffix, ind_vars, solr, soli)
-            add_components(v, 'B', suffix, ind_vars, solr, soli,
-                           deriv=evalB)
+        if name.startswith('B') and not name.startswith('Bt'):
+            add_E_B(name)
+
+        if name.startswith('E') and not name.startswith('Et'):
+            add_E_B(name)
             add_expression(v, 'normE', suffix, ind_vars,
                            '(conj(Ex)*Ex + conj(Ey)*Ey +conj(Ez)*Ez)**(0.5)',
                            ['E'])
@@ -325,14 +431,10 @@ class EM3DUW(EMPhysModule):
 
     def get_diagform_callable(self, fes_arr):
         def callable(fes_arr=fes_arr):
-
-            from petram.mfem_config import use_parallel
             if use_parallel:
-                import mfem.par as mfem
                 dpg_form = mfem.dpg.ParComplexDPGWeakForm
 
             else:
-                import mfem.ser as mfem
                 dpg_form = mfem.dpg.ComplexDPGWeakForm
 
             order = self.order
@@ -361,14 +463,11 @@ class EM3DUW(EMPhysModule):
         return callable, callable_none
 
     def get_diagform2mat(self, real=True):
-        from petram.mfem_config import use_parallel
         if use_parallel:
-            import mfem.par as mfem
             to_opr = mfem.Opr2BlockOpr
             to_matrix = mfem.Opr2HypreParMatrix
 
         else:
-            import mfem.ser as mfem
             to_opr = mfem.Opr2BlockMatrix
             to_matrix = mfem.Opr2SparseMatrix
 
