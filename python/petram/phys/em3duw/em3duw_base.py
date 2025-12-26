@@ -72,7 +72,7 @@ class EM3DUW_Domain(Domain, Phys):
         return self.restrict_coeff(coeff, engine, vec=True)
 
     def add_dpg_integrator(self, engine, coeff, adder, integrator, sp1, sp2,
-                           idx=None,  transpose=False, real=True):
+                           idx=None,  transpose=False):
 
         if hasattr(coeff, "get_real_coefficient"):
             coeffr = coeff.get_real_coefficient()
@@ -117,6 +117,7 @@ class EM3DUW_Domain(Domain, Phys):
             itg2r = itgr
             itg2i = itgi
 
+        print(adder,itg2r, itg2i, sp1, sp2)            
         adder(itg2r, itg2i, sp1, sp2)
 
 
