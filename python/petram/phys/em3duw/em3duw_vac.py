@@ -68,17 +68,17 @@ class EM3DUW_Vac(EM3DUW_Domain):
 
     def get_coeffs(self):
         freq, omega = self.get_root_phys().get_freq_omega()
-        cnorm = self.get_root_phys().get_coeff_norm()
+        enorm, munorm = self.get_root_phys().get_coeff_norm()
 
         e, m, s = self.vt.make_value_or_expression(self)
 
         ind_vars = self.get_root_phys().ind_vars
         l = self._local_ns
         g = self._global_ns
-        eps_cf = EpsSigmaCoeff([e], [s], ind_vars, l, g, omega, epsilon0)
-        mu_cf = MuCoeff([m], ind_vars, l, g, omega, mu0)
+        eps_cf = EpsSigmaCoeff([e], [s], ind_vars, l, g, omega, enorm)
+        mu_cf = MuCoeff([m], ind_vars, l, g, omega, munorm)
 
-        c = np.sqrt(1/epsilon0/mu0)
+        c = np.sqrt(1/enorm/munorm)
         
         cf1 = eps_cf*(-1j*omega/c)
         cf2 = mu_cf*(1j*omega/c)

@@ -10,7 +10,7 @@ import traceback
 from petram.mfem_config import use_parallel
 from petram.model import Domain, Bdry, Pair
 from petram.phys.phys_model import Phys
-from petram.phys.common.em_base import EMPhysModule
+from petram.phys.common.emuw_base import EMUWPhysModule
 from petram.phys.em3duw.em3duw_base import EM3DUW_Bdry, EM3DUW_Domain
 
 import petram.debug as debug
@@ -204,7 +204,7 @@ class EM3DUW_DefPair(Pair, Phys):
         return []
 
 
-class EM3DUW(EMPhysModule):
+class EM3DUW(EMUWPhysModule):
     geom_dim = 3
 
     def __init__(self, **kwargs):
