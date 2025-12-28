@@ -117,7 +117,7 @@ class EM3DUW_Domain(Domain, Phys):
             itg2r = itgr
             itg2i = itgi
 
-        print(adder,itg2r, itg2i, sp1, sp2)            
+        #print(adder,itg2r, itg2i, sp1, sp2)
         adder(itg2r, itg2i, sp1, sp2)
 
 

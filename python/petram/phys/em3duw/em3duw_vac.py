@@ -70,6 +70,9 @@ class EM3DUW_Vac(EM3DUW_Domain):
         freq, omega = self.get_root_phys().get_freq_omega()
         enorm, munorm = self.get_root_phys().get_coeff_norm()
 
+        dprint1("coefficient normalization, e_n, mu_n, c_n",  enorm, munorm,
+                np.sqrt(1/enorm/munorm))
+
         e, m, s = self.vt.make_value_or_expression(self)
 
         ind_vars = self.get_root_phys().ind_vars
@@ -79,26 +82,25 @@ class EM3DUW_Vac(EM3DUW_Domain):
         mu_cf = MuCoeff([m], ind_vars, l, g, omega, munorm)
 
         c = np.sqrt(1/enorm/munorm)
-        
+
         cf1 = eps_cf*(-1j*omega/c)
         cf2 = mu_cf*(1j*omega/c)
-        cf3 = mu_cf*(-1j*omega/c)                       
+        cf3 = mu_cf*(-1j*omega/c)
         cf4 = eps_cf*(1j*omega/c)
         cf5 = eps_cf**2*(omega**2/c**2)
-        cf6 = mu_cf**2*(omega**2/c**2)        
-        
+        cf6 = mu_cf**2*(omega**2/c**2)
+
         return cf1, cf2, cf3, cf4, cf5, cf6
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-        cf1, cf2, cf3, cf4, cf5, cf6 = self.get_coeffs()
-        
         if kfes != 0:
             return
         if real:
             dprint1("Add BF contribution(complex)" + str(self._sel_index))
         else:
-            return 
+            return
 
+        cf1, cf2, cf3, cf4, cf5, cf6 = self.get_coeffs()
         TrialSpace, TestSpace = self.space_idx()
         #a.StoreMatrices()  # needed for AMR
 
@@ -124,7 +126,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
         #    mfem.VectorFEMassIntegrator(cf2)),
         #    TrialSpace["H_space"],
         #    TestSpace["F_space"])
-                              
+
         # μ^2 ω^2 (F,δF)
         self.add_dpg_integrator(engine, cf6, a.AddTestIntegrator,
                                 mfem.VectorFEMassIntegrator,
@@ -133,7 +135,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
         #a.AddTestIntegrator(mfem.VectorFEMassIntegrator(mu2omeg2_cf), None,
         #                    TestSpace["F_space"],
         #                    TestSpace["F_space"])
-        
+
         # -i ω μ (F,∇ × δG) = i (F, -ω μ ∇ × δ G)
         self.add_dpg_integrator(engine, cf3, a.AddTestIntegrator,
                                 mfem.MixedVectorWeakCurlIntegrator,
@@ -142,7 +144,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
         #a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf3),
         #                    TestSpace["F_space"],
         #                    TestSpace["G_space"])
-        
+
         # -i ω ϵ (∇ × F, δG)
         self.add_dpg_integrator(engine, cf1, a.AddTestIntegrator,
                                 mfem.MixedVectorCurlIntegrator,
@@ -151,7 +153,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
         #a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf1),
         #                    TestSpace["F_space"],
         #                    TestSpace["G_space"])
-        
+
         # i ω μ (∇ × G,δF)
         self.add_dpg_integrator(engine, cf2, a.AddTestIntegrator,
                                 mfem.MixedVectorCurlIntegrator,
@@ -160,7 +162,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
         #a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf2),
         #                    TestSpace["G_space"],
         #                    TestSpace["F_space"])
-        
+
         # i ω ϵ (G, ∇ × δF )
         self.add_dpg_integrator(engine, cf4, a.AddTestIntegrator,
                                 mfem.MixedVectorWeakCurlIntegrator,
@@ -177,7 +179,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
         #a.AddTestIntegrator(mfem.VectorFEMassIntegrator(cf5), None,
         #                    TestSpace["G_space"],
         #                    TestSpace["G_space"])
-        
+
 
     def add_domain_variables(self, v, n, suffix, ind_vars):
         from petram.helper.variables import add_constant

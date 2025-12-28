@@ -69,7 +69,7 @@ class EMUWPhysModule(PhysModule):
             g[fname] = f
         '''
         try:
-            enorm, munorm = float(eval(self.coeffnorm_txt, g))
+            enorm, munorm = eval(self.coeffnorm_txt, g)
         except:
             enorm, munorm = 1.0, 1.0
             dprint1("Error, Coefficeint normalization be a scalr real value")

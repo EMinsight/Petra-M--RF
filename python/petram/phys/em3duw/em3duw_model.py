@@ -423,7 +423,7 @@ class EM3DUW(EMUWPhysModule):
 
         return v
 
-    def has_diag_form(self, kfes1):
+    def has_diagform(self, kfes1):
         if kfes1 < 4:
             return True
         return False
@@ -461,7 +461,10 @@ class EM3DUW(EMUWPhysModule):
 
         return callable, callable_none
 
-    def get_diagform2mat(self, real=True):
+    def get_diagform2mat(self):
+        #
+        #   diagform2mat : wrapping of FormLinearSystem
+        #
         if use_parallel:
             to_opr = mfem.Opr2BlockOpr
             to_matrix = mfem.Opr2HypreParMatrix
@@ -470,11 +473,13 @@ class EM3DUW(EMUWPhysModule):
             to_opr = mfem.Opr2BlockMatrix
             to_matrix = mfem.Opr2SparseMatrix
 
-        def converter(a):
-
+        def converter(ess_tdof_list, a,  x):
             Ah = mfem.OperatorPtr()
-            inta = mfem.intArray()
-            a.FormSystemMatrix(inta, Ah)
+            #inta = mfem.intArray()
+            #a.FormSystemMatrix(inta, Ah)
+            X = mfem.Vector()
+            B = mfem.Vector()
+            a.FormLinearSystem(ess_tdof_list, x, Ah, X, B)
 
             Ahc = Ah.AsComplexOperator()
             BlockA_r = to_opr(Ahc.real())
