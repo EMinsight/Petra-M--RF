@@ -461,41 +461,13 @@ class EM3DUW(EMUWPhysModule):
 
         return callable, callable_none
 
-    def get_diagform2mat(self):
-        #
-        #   diagform2mat : wrapping of FormLinearSystem
-        #
-        if use_parallel:
-            to_opr = mfem.Opr2BlockOpr
-            to_matrix = mfem.Opr2HypreParMatrix
+    def split_AhXB_complex(self, Ah, X, B):
+        from petram.phys.phys_diagform_utils import split_AhXB_complex_mode1
 
-        else:
-            to_opr = mfem.Opr2BlockMatrix
-            to_matrix = mfem.Opr2SparseMatrix
+        mblk, xblk, xblk = split_AhXB_complex_mode1(Ah, X, B)
+        
+        # ToDo StaticCondendation should be handled here
 
-        def converter(ess_tdof_list, a,  x):
-            Ah = mfem.OperatorPtr()
-            #inta = mfem.intArray()
-            #a.FormSystemMatrix(inta, Ah)
-            X = mfem.Vector()
-            B = mfem.Vector()
-            a.FormLinearSystem(ess_tdof_list, x, Ah, X, B)
+        return mblk, xblk, xblk
 
-            Ahc = Ah.AsComplexOperator()
-            BlockA_r = to_opr(Ahc.real())
-            BlockA_i = to_opr(Ahc.imag())
-
-            num_blocks = BlockA_r.NumRowBlocks()
-
-            # this is to debug matrix
-            mats = []
-            for i in range(num_blocks):
-                for j in range(num_blocks):
-                    mats.append((to_matrix(BlockA_r.GetBlock(i, j)),
-                                 to_matrix(BlockA_i.GetBlock(i, j)),))
-                    # print(to_matrix(BlockA_r.GetBlock(i, j)))
-                    # print(to_matrix(BlockA_i.GetBlock(i, j)))
-
-            return mats
-
-        return converter
+        
