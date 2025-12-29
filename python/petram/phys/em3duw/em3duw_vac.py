@@ -87,8 +87,8 @@ class EM3DUW_Vac(EM3DUW_Domain):
         cf2 = mu_cf*(1j*omega/c)
         cf3 = mu_cf*(-1j*omega/c)
         cf4 = eps_cf*(1j*omega/c)
-        cf5 = eps_cf**2*(omega**2/c**2)
-        cf6 = mu_cf**2*(omega**2/c**2)
+        cf5 = eps_cf*eps_cf.conj()*(omega**2/c**2)
+        cf6 = mu_cf*mu_cf.conj()*(omega**2/c**2)
 
         return cf1, cf2, cf3, cf4, cf5, cf6
 

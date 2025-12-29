@@ -40,15 +40,15 @@ class EM3DUW_ExtJ(EM3DUW_Domain):
     vt = Vtable(data)
 
     def has_bf_contribution(self, kfes=0):
-        if kfes != 1:
+        if kfes != 0:
             return False
         return True
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-        if kfes != 1:
+        if kfes != 0:
             return
         if real:
-            dprint1("Add LF contribution(real)" + str(self._sel_index))
+            dprint1("Add BF contribution(complex)" + str(self._sel_index))
         else:
             return
 

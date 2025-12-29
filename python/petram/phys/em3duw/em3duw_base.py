@@ -71,8 +71,8 @@ class EM3DUW_Domain(Domain, Phys):
                       real=real)
         return self.restrict_coeff(coeff, engine, vec=True)
 
-    def add_dpg_integrator(self, engine, coeff, adder, integrator, sp1, sp2,
-                           idx=None,  transpose=False):
+    def add_dpg_integrator(self, engine, coeff, adder, integrator, sp1, sp2=None,
+                           transpose=False):
 
         if hasattr(coeff, "get_real_coefficient"):
             coeffr = coeff.get_real_coefficient()
@@ -82,18 +82,17 @@ class EM3DUW_Domain(Domain, Phys):
             coeffi = None
 
         if isinstance(coeffr, mfem.Coefficient):
-            coeffr = self.restrict_coeff(coeffr, engine, idx=idx)
+            coeffr = self.restrict_coeff(coeffr, engine)
             if coeffi is not None:
-                coeffi = self.restrict_coeff(coeffi, engine, idx=idx)
+                coeffi = self.restrict_coeff(coeffi, engine)
         elif isinstance(coeffr, mfem.VectorCoefficient):
-            coeffr = self.restrict_coeff(coeffr, engine, vec=True, idx=idx)
+            coeffr = self.restrict_coeff(coeffr, engine, vec=True)
             if coeffi is not None:
-                coeffi = self.restrict_coeff(coeffi, engine, vec=True, idx=idx)
+                coeffi = self.restrict_coeff(coeffi, engine, vec=True)
         elif isinstance(coeff, mfem.MatrixCoefficient):
-            coeffr = self.restrict_coeff(coeffr, engine, matrix=True, idx=idx)
+            coeffr = self.restrict_coeff(coeffr, engine, matrix=True)
             if coeffi is not None:
-                coeffi = self.restrict_coeff(
-                    coeffi, engine, matrix=True, idx=idx)
+                coeffi = self.restrict_coeff(coeffi, engine, matrix=True)
         else:
             assert False, "Unknown coefficient type: " + str(type(coeff[0]))
 
@@ -118,7 +117,10 @@ class EM3DUW_Domain(Domain, Phys):
             itg2i = itgi
 
         #print(adder,itg2r, itg2i, sp1, sp2)
-        adder(itg2r, itg2i, sp1, sp2)
+        if sp2 is None:   # a.AddDomainLFIntegrator
+            adder(itg2r, itg2i, sp1)
+        else:             # a.AddTestIntegrator, a.AddTrialIntegrator
+            adder(itg2r, itg2i, sp1, sp2)
 
 
 class EM3DUW_Bdry(Bdry, Phys):

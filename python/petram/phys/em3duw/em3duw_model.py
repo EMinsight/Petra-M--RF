@@ -464,10 +464,10 @@ class EM3DUW(EMUWPhysModule):
     def split_AhXB_complex(self, Ah, X, B):
         from petram.phys.phys_diagform_utils import split_AhXB_complex_mode1
 
-        mblk, xblk, xblk = split_AhXB_complex_mode1(Ah, X, B)
+        mblk, xblk, bblk = split_AhXB_complex_mode1(Ah, X, B)
         
         # ToDo StaticCondendation should be handled here
 
-        return mblk, xblk, xblk
+        return mblk, xblk, bblk
 
         

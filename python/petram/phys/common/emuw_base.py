@@ -69,10 +69,12 @@ class EMUWPhysModule(PhysModule):
             g[fname] = f
         '''
         try:
-            enorm, munorm = eval(self.coeffnorm_txt, g)
+             ret = eval(self.coeffnorm_txt, g)
+             enorm = float(ret[0])
+             munorm = float(ret[1])
         except:
             enorm, munorm = 1.0, 1.0
-            dprint1("Error, Coefficeint normalization be a scalr real value")
+            dprint1("Error, Coefficeint normalization be two scalr real values")
         return enorm, munorm
 
     def add_variables(self, v, name, solr, soli=None):
