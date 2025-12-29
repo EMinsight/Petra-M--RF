@@ -1,7 +1,13 @@
+#
+# UltraWeak-DPG version of EM3D.
+#
+# This formulations solves the first order system
+#
+#  -i ω μ H + ∇ × E = 0,   in Ω
+#   i ω ϵ E + ∇ × H = J,   in Ω
+#
+#  as usual exp(-iωt) is used.
 
-'''
-UltraWeak-DPG version of EM3D
-'''
 from petram.phys.phys_model import Phys, PhysModule, VectorPhysCoefficient
 from petram.phys.vtable import VtableElement, Vtable
 import numpy as np
