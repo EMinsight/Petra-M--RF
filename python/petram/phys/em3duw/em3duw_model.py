@@ -267,6 +267,7 @@ class EM3DUW(EMUWPhysModule):
         v["ndim"] = 3
         v["ind_vars"] = 'x, y, z'
         v["dep_vars_suffix"] = ''
+        v["static_cond"] = False
         return v
 
     def panel1_param(self):
@@ -276,7 +277,8 @@ class EM3DUW(EMUWPhysModule):
             ["independent vars.", self.ind_vars, 0, {}],
             a,
             ["dep. vars.", ','.join(self.dep_vars), 2, {}],
-            ["ns vars.", '', 2, {}], ])
+            ["ns vars.", '', 2, {}],
+            ["static cond.", True, 3, {"text": ""}],])
 
         return panels
 
@@ -286,7 +288,7 @@ class EM3DUW(EMUWPhysModule):
         val = super(EM3DUW, self).get_panel1_value()
         val.extend([  # self.freq_txt,
             self.ind_vars, self.dep_vars_suffix,
-            names, names2, ])
+            names, names2, self.static_cond ])
         return val
 
     def import_panel1_value(self, v):
@@ -294,6 +296,7 @@ class EM3DUW(EMUWPhysModule):
         # self.freq_txt = str(v[0])
         self.ind_vars = str(v[0])
         self.dep_vars_suffix = str(v[1])
+        self.static_cond = v[-1]
 
     def get_possible_bdry(self):
         if EM3DUW._possible_constraints is None:
@@ -458,6 +461,9 @@ class EM3DUW(EMUWPhysModule):
             form._test_fec = test_fec
             form._trial_fes = trial_fes
 
+            if self.static_cond:
+                form.EnableStaticCondensation()
+
             return form
 
         def callable_none(fes_arr=fes_arr):
@@ -471,9 +477,19 @@ class EM3DUW(EMUWPhysModule):
         from petram.phys.phys_diagform_utils import split_AhXB_complex_mode1
 
         mblk, xblk, bblk = split_AhXB_complex_mode1(Ah, X, B)
-        
-        # ToDo StaticCondendation should be handled here
 
+        if self.static_cond:
+            # put None to form 4x4 return value
+            mblk = ([None, None, None, None,
+                     None, None, None, None,
+                     None, None, mblk[0][0], mblk[0][1],
+                     None, None, mblk[0][2], mblk[0][3],],
+                    [None, None, None, None,
+                     None, None, None, None,
+                     None, None, mblk[1][0], mblk[1][1],
+                     None, None, mblk[1][2], mblk[1][3],],)
+            xblk = ([None, None, xblk[0][0], xblk[0][1]],
+                    [None, None, xblk[1][0], xblk[1][1]])
+            bblk = ([None, None, bblk[0][0], bblk[0][1]],
+                    [None, None, bblk[1][0], bblk[1][1]])
         return mblk, xblk, bblk
-
-        
