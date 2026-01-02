@@ -1,13 +1,9 @@
-from __future__ import print_function
 from petram.phys.vtable import VtableElement, Vtable
-from petram.phys.em3d.em3d_portmode import (C_Et_TE,
-                                            C_jwHt_TE,
-                                            C_Et_TEM,
-                                            C_jwHt_TEM,
-                                            C_Et_CoaxTEM,
-                                            C_jwHt_CoaxTEM,)
-from petram.helper.geom import find_circle_center_radius
-from petram.helper.geom import connect_pairs
+from petram.phys.common.rf_port_geometry import (analyze_geom_norm_ref,
+                                                 analyze_rect_geom,
+                                                 analyze_coax_geom,
+                                                 analyze_circular_geom)
+
 from petram.phys.em3d.em3d_base import EM3D_Bdry, EM3D_Domain
 from petram.phys.phys_model import Phys
 from petram.model import Bdry
@@ -93,25 +89,29 @@ class EM3D_Port(EM3D_Bdry):
         v['sel_readonly'] = False
         v['sel_index'] = []
         v['isTimeDependent_RHS'] = True
+        v['ref_pt'] = '1'        
         return v
 
     def panel1_param(self):
         return ([["port id", str(self.port_idx), 0, {}],
                  ["mode", self.mode, 4, {"readonly": True,
-                                         "choices": ["TE", "TEM", "Coax(TEM)"]}],
-                 ["m/n", ','.join(str(x) for x in self.mn), 0, {}], ] +
+                                         "choices": ["TE", "TEM", "Coax(TEM)", "Circular(TE)"]}],
+                 ["m/n", ','.join(str(x) for x in self.mn), 0, {}], 
+                 ["ref. pt.", "", 0, {}],] +                
                 self.vt.panel_param(self))
 
     def get_panel1_value(self):
         return ([str(self.port_idx),
-                 self.mode, ','.join(str(x) for x in self.mn)] +
+                 self.mode, ','.join(str(x) for x in self.mn),
+                 self.ref_pt] +                
                 self.vt.get_panel_value(self))
 
     def import_panel1_value(self, v):
         self.port_idx = v[0]
         self.mode = v[1]
         self.mn = [int(x) for x in v[2].split(',')]
-        self.vt.import_panel_value(self, v[3:])
+        self.ref_pt = v[3]        
+        self.vt.import_panel_value(self, v[4:])
 
     def panel4_param(self):
         ll = super(EM3D_Port, self).panel4_param()
@@ -156,31 +156,21 @@ class EM3D_Port(EM3D_Bdry):
         # find normal (outward) vector...
         mesh = engine.get_emesh(mm=self)
 
-        fespace = engine.fespaces[self.get_root_phys().dep_vars[0]]
+        #fespace = engine.fespaces[self.get_root_phys().dep_vars[0]]
 
         nbe = mesh.GetNBE()
         ibe = np.array([i for i in range(nbe)
                         if mesh.GetBdrElement(i).GetAttribute() ==
                         self._sel_index[0]])
 
-        el = mesh.GetBdrElement(ibe[0])
-        Tr = fespace.GetBdrElementTransformation(ibe[0])
-        rules = mfem.IntegrationRules()
-        ir = rules.Get(el.GetGeometryType(), 1)
-        Tr.SetIntPoint(ir.IntPoint(0))
-        nor = mfem.Vector(3)
-        mfem.CalcOrtho(Tr.Jacobian(), nor)
-
-        self.norm = nor.GetDataArray().copy()
-        self.norm = self.norm / np.sqrt(np.sum(self.norm**2))
-
-        #freq = self._global_ns["freq"]
-        #self.omega = freq * 2 * np.pi
-        #dprint1("Frequency " + (freq).__repr__())
-        dprint1("Normal Vector " + list(self.norm).__repr__())
-
-        # find rectangular shape
+        norm, rptx = analyze_geom_norm_ref(mesh, ibe, self.ref_pt)
+        self.norm = norm
+        
+        dprint1("Normal Vector " + str(self.norm))
+        dprint1("Ref. Point" + str(rptx))
+        
         if str(self.mode).upper().strip() in ['TE', 'TM', 'TEM']:
+            '''
             edges = np.array([mesh.GetBdrElementEdges(i)[0]
                               for i in ibe]).flatten()
             d = {}
@@ -216,11 +206,6 @@ class EM3D_Port(EM3D_Bdry):
                 self.a_vec = -self.a_vec
 
             if self.mode == 'TEM':
-                '''
-                special handling
-                set a vector along PEC-like edge, regardless the actual
-                length of edges
-                '''
                 for i in range(nbe):
                     if (edges[0] in mesh.GetBdrElementEdges(i)[0] and
                             self._sel_index[0] != mesh.GetBdrAttribute(i)):
@@ -258,11 +243,20 @@ class EM3D_Port(EM3D_Bdry):
             if self.a_vec[np.argmax(np.abs(self.a_vec))] < 0:
                 self.a_vec = -self.a_vec
                 self.b_vec = -self.b_vec
+            '''
+            geom_data, vv = analyze_rect_geom(self, mesh, ibe, norm)
+            self.a = geom_data["a"]
+            self.a_vec = geom_data["a_vec"]
+            self.b = geom_data["b"]
+            self.b_vec = geom_data["b_vec"]            
+            self.c = geom_data["c"]            
             dprint1("Long Edge  " + self.a.__repr__())
             dprint1("Long Edge Vec." + list(self.a_vec).__repr__())
             dprint1("Short Edge  " + self.b.__repr__())
             dprint1("Short Edge Vec." + list(self.b_vec).__repr__())
+            
         elif self.mode == 'Coax(TEM)':
+            '''
             edges = np.array([mesh.GetBdrElementEdges(i)[0]
                               for i in ibe]).flatten()
             d = {}
@@ -282,6 +276,24 @@ class EM3D_Port(EM3D_Bdry):
             dprint1("Small R: " + self.a.__repr__())
             dprint1("Center:  " + self.ctr.__repr__())
             vv = vv1
+            '''
+            geom_data, vv = analyze_coax_geom(mesh, ibe, norm, rptx)
+            self.a = geom_data["a"]
+            self.b = geom_data["b"]
+            self.ctr = geom_data["ctr"]            
+            self.ax1 = geom_data["ax1"]
+            self.ax2 = geom_data["ax2"]                        
+            
+        elif self.mode == 'Circular(TE)':
+            geom_data, vv = analyze_circular_geom(mesh, ibe, norm, rptx)
+            self.a = geom_data["a"]
+            self.ctr = geom_data["ctr"]
+            self.ax1 = geom_data["ax1"]
+            self.ax2 = geom_data["ax2"]                        
+        else:
+            assert False, "unknown mode"
+            
+            
         C_Et, C_jwHt = self.get_coeff_cls()
 
         self.vt.preprocess_params(self)
@@ -291,20 +303,15 @@ class EM3D_Port(EM3D_Bdry):
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Et.EvalValue(p).__repr__())
         dprint1("H field pattern")
-        Ht = C_jwHt(3, 0.0, self, real=False, eps=eps, mur=mur)
+        cnorm = self.get_root_phys().get_coeff_norm()        
+        Ht = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Ht.EvalValue(p).__repr__())
 
     def get_coeff_cls(self):
-        if self.mode == 'TEM':
-            return C_Et_TEM, C_jwHt_TEM
-        elif self.mode == 'TE':
-            return C_Et_TE, C_jwHt_TE
-        elif self.mode == 'Coax(TEM)':
-            return C_Et_CoaxTEM, C_jwHt_CoaxTEM
-        else:
-            raise NotImplementedError(
-                "you must implement this mode")
+        from petram.phys.common.rf_portmode import get_portmode_coeff_cls
+        
+        return get_portmode_coeff_cls(self.mode)
 
     def has_lf_contribution(self, kfes):
         if kfes != 0:
@@ -331,22 +338,13 @@ class EM3D_Port(EM3D_Bdry):
 
         phase = np.angle(inc_wave) * 180 / np.pi
         amp = np.sqrt(np.abs(inc_wave))
-
-        Ht = C_jwHt(3, phase, self, real=real, amp=amp, eps=eps, mur=mur)
+        cnorm = self.get_root_phys().get_coeff_norm()
+        
+        Ht = C_jwHt(3, self, real=real, eps=eps, mur=mur, amp=amp, phase=phase, cnorm=cnorm)
         Ht = self.restrict_coeff(Ht, engine, vec=True)
 
         intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht)
         b.AddBoundaryIntegrator(intg)
-
-    '''
-    def add_lf_contribution_imag(self, engine, b):
-        dprint1("Adding LF(imag) contribution")
-        C_Et, C_jwHt = self.get_coeff_cls()
-        Ht = C_jwHt(3, self.inc_phase, self, real = False, amp = self.inc_amp)
-        Ht = self.restrict_coeff(Ht, engine, vec=True)
-        intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht)
-        b.AddBoundaryIntegrator(intg)
-    '''
 
     def has_extra_DoF(self, kfes):
         if kfes != 0:
@@ -384,17 +382,18 @@ class EM3D_Port(EM3D_Bdry):
         inc_amp, inc_phase, eps, mur = self.vt.make_value_or_expression(self)
 
         C_Et, C_jwHt = self.get_coeff_cls()
-
+        cnorm = self.get_root_phys().get_coeff_norm()
+        
         fes = engine.get_fes(self.get_root_phys(), 0)
 
         lf1 = engine.new_lf(fes)
-        Ht1 = C_jwHt(3, 0.0, self, real=True, eps=eps, mur=mur)
+        Ht1 = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm)
         Ht2 = self.restrict_coeff(Ht1, engine, vec=True)
         intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht2)
         lf1.AddBoundaryIntegrator(intg)
         lf1.Assemble()
         lf1i = engine.new_lf(fes)
-        Ht3 = C_jwHt(3, 0.0, self, real=False, eps=eps, mur=mur)
+        Ht3 = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
         Ht4 = self.restrict_coeff(Ht3, engine, vec=True)
         intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht4)
         lf1i.AddBoundaryIntegrator(intg)

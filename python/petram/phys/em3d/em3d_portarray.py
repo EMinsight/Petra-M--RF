@@ -20,12 +20,6 @@
     2020 7/20  generated from portarray
 '''
 from __future__ import print_function
-from petram.phys.em3d.em3d_portmode import (C_Et_TE,
-                                            C_jwHt_TE,
-                                            C_Et_TEM,
-                                            C_jwHt_TEM,
-                                            C_Et_CoaxTEM,
-                                            C_jwHt_CoaxTEM,)
 from petram.helper.geom import find_circle_center_radius
 from petram.helper.geom import connect_pairs
 from petram.phys.em3d.em3d_base import EM3D_Bdry, EM3D_Domain
@@ -320,7 +314,8 @@ class EM3D_PortArray(EM3D_Bdry):
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Et.EvalValue(p).__repr__())
         dprint1("H field pattern")
-        Ht = C_jwHt(3, 0.0, self, real=False, eps=eps, mur=mur)
+        cnorm = self.get_root_phys().get_coeff_norm()        
+        Ht = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Ht.EvalValue(p).__repr__())
 
@@ -344,16 +339,9 @@ class EM3D_PortArray(EM3D_Bdry):
         self._sel_index = sels
 
     def get_coeff_cls(self):
-
-        if self.mode == 'TEM':
-            return C_Et_TEM, C_jwHt_TEM
-        elif self.mode == 'TE':
-            return C_Et_TE, C_jwHt_TE
-        elif self.mode == 'Coax(TEM)':
-            return C_Et_CoaxTEM, C_jwHt_CoaxTEM
-        else:
-            raise NotImplementedError(
-                "you must implement this mode")
+        from petram.phys.common.rf_portmode import get_portmode_coeff_cls
+        
+        return get_portmode_coeff_cls(self.mode)
 
     def has_lf_contribution(self, kfes):
         if kfes != 0:
@@ -409,24 +397,15 @@ class EM3D_PortArray(EM3D_Bdry):
 
             phase = np.angle(inc_wave) * 180 / np.pi
             amp = np.sqrt(np.abs(inc_wave))
-
-            Ht = C_jwHt(3, phase, self, real=real, amp=amp, eps=eps, mur=mur)
+            cnorm = self.get_root_phys().get_coeff_norm()
+            
+            Ht = C_jwHt(3, self, real=real, amp=amp, eps=eps, mur=mur, phase=phase, cnorm=cnorm)
             Ht = self.restrict_coeff(Ht, engine, vec=True, idx=[sel])
 
             intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht)
             b.AddBoundaryIntegrator(intg)
 
             ph = ph + next(dphase)
-
-    '''
-    def add_lf_contribution_imag(self, engine, b):
-        dprint1("Adding LF(imag) contribution")
-        C_Et, C_jwHt = self.get_coeff_cls()
-        Ht = C_jwHt(3, self.inc_phase, self, real = False, amp = self.inc_amp)
-        Ht = self.restrict_coeff(Ht, engine, vec=True)
-        intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht)
-        b.AddBoundaryIntegrator(intg)
-    '''
 
     def has_extra_DoF(self, kfes):
         if kfes != 0:
@@ -447,17 +426,18 @@ class EM3D_PortArray(EM3D_Bdry):
     def do_add_extra_contribution(
             self, engine, inc_amp, inc_phase, eps, mur, sel):
         C_Et, C_jwHt = self.get_coeff_cls()
-
+        cnorm = self.get_root_phys().get_coeff_norm()
+        
         fes = engine.get_fes(self.get_root_phys(), 0)
-
+            
         lf1 = engine.new_lf(fes)
-        Ht1 = C_jwHt(3, 0.0, self, real=True, eps=eps, mur=mur)
+        Ht1 = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm)
         Ht2 = self.restrict_coeff(Ht1, engine, vec=True, idx=[sel])
         intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht2)
         lf1.AddBoundaryIntegrator(intg)
         lf1.Assemble()
         lf1i = engine.new_lf(fes)
-        Ht3 = C_jwHt(3, 0.0, self, real=False, eps=eps, mur=mur)
+        Ht3 = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
         Ht4 = self.restrict_coeff(Ht3, engine, vec=True, idx=[sel])
         intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht4)
         lf1i.AddBoundaryIntegrator(intg)

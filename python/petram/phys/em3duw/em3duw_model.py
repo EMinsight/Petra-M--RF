@@ -108,6 +108,7 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
                              TestSpace["F_space"])
         # (E,∇ × F)
         # (H,∇ × G)
+        '''
         self.add_dpg_integrator(engine,  one, a.AddTrialIntegrator,
                                 mfem.MixedCurlIntegrator,
                                 TrialSpace["E_space"],
@@ -118,52 +119,51 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
                                 TrialSpace["H_space"],
                                 TestSpace["G_space"],
                                 transpose=True)
-        # a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
-        #                     None,
-        #                     TrialSpace["E_space"],
-        #                     TestSpace["F_space"])
-        # a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
-        #                     None,
-        #                     TrialSpace["H_space"],
-        #                     TestSpace["G_space"])
+        '''
+        a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
+                            None,
+                            TrialSpace["E_space"],
+                            TestSpace["F_space"])
+        a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
+                            None,
+                            TrialSpace["H_space"],
+                            TestSpace["G_space"])
 
         # test integrators
         # (∇×G ,∇× δG)
         # (G,δG)
         # (∇×F,∇×δF)
         # (F,δF)
+        '''
         self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
                                 mfem.CurlCurlIntegrator,
                                 TestSpace["G_space"],
-                                TestSpace["G_space"],
-                                transpose=False,)
+                                TestSpace["G_space"],)
         self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
                                 mfem.VectorFEMassIntegrator,
                                 TestSpace["G_space"],
-                                TestSpace["G_space"],
-                                transpose=False,)
+                                TestSpace["G_space"],)
         self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
                                 mfem.CurlCurlIntegrator,
                                 TestSpace["F_space"],
-                                TestSpace["F_space"],
-                                transpose=False,)
+                                TestSpace["F_space"],)
         self.add_dpg_integrator(engine, one, a.AddTestIntegrator,
                                 mfem.VectorFEMassIntegrator,
                                 TestSpace["F_space"],
-                                TestSpace["F_space"],
-                                transpose=False,)
-        # a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
-        #                    TestSpace["G_space"],
-        #                    TestSpace["G_space"])
-        # a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
-        #                    TestSpace["G_space"],
-        #                    TestSpace["G_space"])
-        # a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
-        #                    TestSpace["F_space"],
-        #                    TestSpace["F_space"])
-        # a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
-        #                    TestSpace["F_space"],
-        #                    TestSpace["F_space"])
+                                TestSpace["F_space"],)
+        '''
+        a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
+                            TestSpace["G_space"],
+                            TestSpace["G_space"])
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
+                            TestSpace["G_space"],
+                            TestSpace["G_space"])
+        a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
+                            TestSpace["F_space"],
+                            TestSpace["F_space"])
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
+                            TestSpace["F_space"],
+                            TestSpace["F_space"])
 
 
 data2 = (('label1', VtableElement(None,
