@@ -14,9 +14,11 @@
   About sign of port phasing.
        positive phasing means the incoming wave appears later (phase delay)
        at the port
+
+  Note: jcH returns H/mu0 (which is B)
 '''
 from petram.mfem_config import use_parallel
-from numpy import sin, cos, exp, sqrt, array, sum, pi, log, cross
+from numpy import sin, cos, exp, sqrt, array, sum, pi, log, cross, arctan2
 
 from petram.phys.phys_const import epsilon0, mu0
 
@@ -266,7 +268,7 @@ class C_jwHt_CoaxTEM(mfem.VectorPyCoefficient):
 '''
 
 
-def circular_norm(a, b, mur, eps):
+def circular_norm():
     # ToDo
     return 1.0
 
@@ -277,33 +279,35 @@ class C_CircularTE(mfem.VectorPyCoefficient):
         freq, omega = bdry.get_root_phys().get_freq_omega()
 
         self.real = real
-        self.m = bdry.m
-        self.n = bdry.n
+        self.m = bdry.mn[0]
+        self.n = bdry.mn[1]
         self.a = bdry.a  #
         self.ctr = bdry.ctr
-        self.a1 = bdry.a1
-        self.a2 = bdry.a2
+        self.ax1 = bdry.ax1
+        self.ax2 = bdry.ax2
         self.norm = bdry.norm
         self.cnorm = 1.0
+        self.phase = phase
         
         self.amp = amp
 
         freq, omega = bdry.get_root_phys().get_freq_omega()
         self.omega = omega
         
-        from scipy.special import jn_zeros
+        from scipy.special import jnp_zeros
 
-        xzero = jn_zeros(bndry.m, bdry.n+1)[-1]
+        xzero = jnp_zeros(self.m, self.n)[-1]
         kc = xzero/self.a
-        k = eps*omega**2*sqrt(epsilon0*eps * mu0*mur)
+        k = eps*omega*sqrt(epsilon0*eps * mu0*mur)
 
         if k**2 < kc**2:
             assert False, "mode does not propagte"
             
         self.kg = sqrt(k**2-kc**2)
         self.kc = kc
-        
-        self.AA = circular_norm(self.a, self.b, mur, eps)
+
+        print("kg, kc, k", self.kg, self.kc, k)
+        self.AA = circular_norm()
         
 class C_Et_CircularTE(C_CircularTE):
     def EvalValue(self, x):
@@ -312,7 +316,7 @@ class C_Et_CircularTE(C_CircularTE):
         nt = cross(self.norm, nr)
 
         rr = sqrt(sum(r**2))
-        th = arctam2(sum(nr*self.a2), sum(nr*self.a1))
+        th = arctan2(sum(nr*self.ax2), sum(nr*self.ax1))
      
         from scipy.special import jv, jvp        
         
@@ -326,25 +330,25 @@ class C_Et_CircularTE(C_CircularTE):
         else:
             return E.imag
 
-class C_jwHt_CircularTE(mfem.VectorPyCoefficient):
+class C_jwHt_CircularTE(C_CircularTE):
     def EvalValue(self, x):    
         r = (x - self.ctr)
         nr = r/sqrt(sum(r**2))
         nt = cross(self.norm, nr)
 
         rr = sqrt(sum(r**2))
-        th = arctam2(sum(nr*self.a2), sum(nr*self.a1))
+        th = arctan2(sum(nr*self.ax2), sum(nr*self.ax1))
      
         from scipy.special import jv, jvp        
         
-        Hr = -self.kg*self.kc/self.omega/mu0*self.amp*jvp(self.m, rr*self.kc)*cos(self.m*th)
-        Ht =  self.kg*self.m/self.omega/mu0/rr*self.amp*jv(self.m, rr*self.kc)*sin(self.m*th)
+        Hr = -self.kg*self.kc/self.omega*self.amp*jvp(self.m, rr*self.kc)*cos(self.m*th)
+        Ht =  self.kg*self.m/self.omega/rr*self.amp*jv(self.m, rr*self.kc)*sin(self.m*th)
 
-        H = 1j*omega*(Hr*nr + Ht*nt) * exp(1j*self.phase*pi/180.)*self.AA*self.cnorm
+        H = 1j*self.omega*(Hr*nr + Ht*nt) * exp(1j*self.phase*pi/180.)*self.AA*self.cnorm/mu0
         
         if self.real:
-            return -H.real
+            return H.real
         else:
-            return -H.imag
+            return H.imag
 
         

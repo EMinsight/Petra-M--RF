@@ -89,28 +89,28 @@ class EM3D_Port(EM3D_Bdry):
         v['sel_readonly'] = False
         v['sel_index'] = []
         v['isTimeDependent_RHS'] = True
-        v['ref_pt'] = '1'        
+        v['ref_pt'] = '1'
         return v
 
     def panel1_param(self):
         return ([["port id", str(self.port_idx), 0, {}],
                  ["mode", self.mode, 4, {"readonly": True,
                                          "choices": ["TE", "TEM", "Coax(TEM)", "Circular(TE)"]}],
-                 ["m/n", ','.join(str(x) for x in self.mn), 0, {}], 
-                 ["ref. pt.", "", 0, {}],] +                
+                 ["m/n", ','.join(str(x) for x in self.mn), 0, {}],
+                 ["ref. pt.", "", 0, {}],] +
                 self.vt.panel_param(self))
 
     def get_panel1_value(self):
         return ([str(self.port_idx),
                  self.mode, ','.join(str(x) for x in self.mn),
-                 self.ref_pt] +                
+                 self.ref_pt] +
                 self.vt.get_panel_value(self))
 
     def import_panel1_value(self, v):
         self.port_idx = v[0]
         self.mode = v[1]
         self.mn = [int(x) for x in v[2].split(',')]
-        self.ref_pt = v[3]        
+        self.ref_pt = v[3]
         self.vt.import_panel_value(self, v[4:])
 
     def panel4_param(self):
@@ -165,10 +165,10 @@ class EM3D_Port(EM3D_Bdry):
 
         norm, rptx = analyze_geom_norm_ref(mesh, ibe, self.ref_pt)
         self.norm = norm
-        
+
         dprint1("Normal Vector " + str(self.norm))
         dprint1("Ref. Point" + str(rptx))
-        
+
         if str(self.mode).upper().strip() in ['TE', 'TM', 'TEM']:
             '''
             edges = np.array([mesh.GetBdrElementEdges(i)[0]
@@ -248,13 +248,13 @@ class EM3D_Port(EM3D_Bdry):
             self.a = geom_data["a"]
             self.a_vec = geom_data["a_vec"]
             self.b = geom_data["b"]
-            self.b_vec = geom_data["b_vec"]            
-            self.c = geom_data["c"]            
+            self.b_vec = geom_data["b_vec"]
+            self.c = geom_data["c"]
             dprint1("Long Edge  " + self.a.__repr__())
             dprint1("Long Edge Vec." + list(self.a_vec).__repr__())
             dprint1("Short Edge  " + self.b.__repr__())
             dprint1("Short Edge Vec." + list(self.b_vec).__repr__())
-            
+
         elif self.mode == 'Coax(TEM)':
             '''
             edges = np.array([mesh.GetBdrElementEdges(i)[0]
@@ -280,20 +280,20 @@ class EM3D_Port(EM3D_Bdry):
             geom_data, vv = analyze_coax_geom(mesh, ibe, norm, rptx)
             self.a = geom_data["a"]
             self.b = geom_data["b"]
-            self.ctr = geom_data["ctr"]            
+            self.ctr = geom_data["ctr"]
             self.ax1 = geom_data["ax1"]
-            self.ax2 = geom_data["ax2"]                        
-            
+            self.ax2 = geom_data["ax2"]
+
         elif self.mode == 'Circular(TE)':
             geom_data, vv = analyze_circular_geom(mesh, ibe, norm, rptx)
             self.a = geom_data["a"]
             self.ctr = geom_data["ctr"]
             self.ax1 = geom_data["ax1"]
-            self.ax2 = geom_data["ax2"]                        
+            self.ax2 = geom_data["ax2"]
         else:
             assert False, "unknown mode"
-            
-            
+
+
         C_Et, C_jwHt = self.get_coeff_cls()
 
         self.vt.preprocess_params(self)
@@ -303,14 +303,14 @@ class EM3D_Port(EM3D_Bdry):
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Et.EvalValue(p).__repr__())
         dprint1("H field pattern")
-        cnorm = self.get_root_phys().get_coeff_norm()        
+        cnorm = self.get_root_phys().get_coeff_norm()
         Ht = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Ht.EvalValue(p).__repr__())
 
     def get_coeff_cls(self):
         from petram.phys.common.rf_portmode import get_portmode_coeff_cls
-        
+
         return get_portmode_coeff_cls(self.mode)
 
     def has_lf_contribution(self, kfes):
@@ -339,7 +339,7 @@ class EM3D_Port(EM3D_Bdry):
         phase = np.angle(inc_wave) * 180 / np.pi
         amp = np.sqrt(np.abs(inc_wave))
         cnorm = self.get_root_phys().get_coeff_norm()
-        
+
         Ht = C_jwHt(3, self, real=real, eps=eps, mur=mur, amp=amp, phase=phase, cnorm=cnorm)
         Ht = self.restrict_coeff(Ht, engine, vec=True)
 
@@ -383,7 +383,7 @@ class EM3D_Port(EM3D_Bdry):
 
         C_Et, C_jwHt = self.get_coeff_cls()
         cnorm = self.get_root_phys().get_coeff_norm()
-        
+
         fes = engine.get_fes(self.get_root_phys(), 0)
 
         lf1 = engine.new_lf(fes)
@@ -411,14 +411,6 @@ class EM3D_Port(EM3D_Bdry):
         arr = self.get_restriction_array(engine)
         x.ProjectBdrCoefficientTangent(Et, arr)
 
-        inc_wave = inc_amp * np.exp(1j * inc_phase / 180. * np.pi)
-
-        phase = np.angle(inc_wave) * 180 / np.pi
-        amp = np.sqrt(np.abs(inc_wave))
-
-        t4 = np.array(
-            [[amp * np.exp(1j * phase / 180. * np.pi)]])
-
         weight = mfem.InnerProduct(engine.x2X(x), engine.b2B(lf2))
 
         #
@@ -438,10 +430,19 @@ class EM3D_Port(EM3D_Bdry):
         v1 = PyVec2PyMat(v1)
         v2 = PyVec2PyMat(v2.transpose())
 
-        t4 = Array2PyVec(t4)
+
         t3 = IdentityPyMat(1, diag=-1)
 
         v2 = v2.transpose()
+
+        # t4
+        inc_wave = inc_amp * np.exp(1j * inc_phase / 180. * np.pi)
+        phase = np.angle(inc_wave) * 180 / np.pi
+        amp = np.sqrt(np.abs(inc_wave))
+
+        t4 = np.array(
+            [[amp * np.exp(1j * phase / 180. * np.pi)]])
+        t4 = Array2PyVec(t4)
 
         '''
         Format of extar   (t2 is returnd as vertical(transposed) matrix)
