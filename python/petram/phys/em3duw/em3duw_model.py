@@ -473,6 +473,13 @@ class EM3DUW(EMUWPhysModule):
 
         return callable, callable_none
 
+    def diag_formlinearsystem(self, ess_tdof_list, a,  x):
+        from petram.debug import debug_dpg_essential
+
+        if debug_dpg_essential:
+            ess_tdof_list = mfem.intArray()
+        return super(EM3DUW, self).diag_formlinearsystem(ess_tdof_list, a,  x)
+
     def split_AhXB_complex(self, Ah, X, B):
         from petram.phys.phys_diagform_utils import split_AhXB_complex_mode1
 

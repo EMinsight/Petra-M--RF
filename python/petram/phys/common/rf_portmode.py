@@ -6,7 +6,7 @@
     Note that it consists from two terms
        1)  \int dS W \dot n \times iwH (VectorFETangentIntegrator does this)
        2)  an weighting to evaulate mode amplutude from the E field
-           on a boundary              
+           on a boundary
   TEM Mode
        E is parallel to the periodic edge
        Mode number is ignored (of course)
@@ -79,7 +79,7 @@ class C_Et_TE(mfem.VectorPyCoefficient):
         alpha = omega*mur*mu0*pi/kc/kc
         gamma = beta*pi/kc/kc
         norm = TE_norm(self.m, self.n, self.a, self.b, alpha, gamma)
-        self.AA = alpha/norm
+        self.AA = alpha/norm*amp * exp(1j*phase*pi/180.)
         dprint2("normalization to old ", self.AA)
         mfem.VectorPyCoefficient.__init__(self, sdim)
 
@@ -168,7 +168,7 @@ class C_Et_TEM(mfem.VectorPyCoefficient):
         freq, omega = bdry.get_root_phys().get_freq_omega()
         self.real = real
         self.a_vec, self.b_vec = bdry.a_vec, bdry.b_vec
-        self.AA = 1.0
+        self.AA = 1.0*amp * exp(1j*phase*pi/180.)
 
     def EvalValue(self, x):
         Ex = self.AA
@@ -216,7 +216,7 @@ class C_Et_CoaxTEM(mfem.VectorPyCoefficient):
         self.a = bdry.a
         self.b = bdry.b
         self.ctr = bdry.ctr
-        self.AA = coax_norm(self.a, self.b, mur, eps)
+        self.AA = coax_norm(self.a, self.b, mur, eps)*amp * exp(1j*phase*pi/180.)
 
     def EvalValue(self, x):
         r = (x - self.ctr)
@@ -288,12 +288,12 @@ class C_CircularTE(mfem.VectorPyCoefficient):
         self.norm = bdry.norm
         self.cnorm = 1.0
         self.phase = phase
-        
+
         self.amp = amp
 
         freq, omega = bdry.get_root_phys().get_freq_omega()
         self.omega = omega
-        
+
         from scipy.special import jnp_zeros
 
         xzero = jnp_zeros(self.m, self.n)[-1]
@@ -302,13 +302,12 @@ class C_CircularTE(mfem.VectorPyCoefficient):
 
         if k**2 < kc**2:
             assert False, "mode does not propagte"
-            
+
         self.kg = sqrt(k**2-kc**2)
         self.kc = kc
-
-        print("kg, kc, k", self.kg, self.kc, k)
-        self.AA = circular_norm()
         
+        self.AA = circular_norm() * amp * exp(1j*phase*pi/180.)
+
 class C_Et_CircularTE(C_CircularTE):
     def EvalValue(self, x):
         r = (x - self.ctr)
@@ -317,13 +316,13 @@ class C_Et_CircularTE(C_CircularTE):
 
         rr = sqrt(sum(r**2))
         th = arctan2(sum(nr*self.ax2), sum(nr*self.ax1))
-     
-        from scipy.special import jv, jvp        
-        
+
+        from scipy.special import jv, jvp
+
         Er =  self.m*self.amp/rr*jv(self.m, rr*self.kc)*sin(self.m*th)
         Et =  self.kc*self.amp*jvp(self.m, rr*self.kc)*cos(self.m*th)
 
-        E = (Er*nr + Et*nt) * exp(1j*self.phase*pi/180.)*self.AA
+        E = (Er*nr + Et*nt) * self.AA
 
         if self.real:
             return E.real
@@ -331,24 +330,22 @@ class C_Et_CircularTE(C_CircularTE):
             return E.imag
 
 class C_jwHt_CircularTE(C_CircularTE):
-    def EvalValue(self, x):    
+    def EvalValue(self, x):
         r = (x - self.ctr)
         nr = r/sqrt(sum(r**2))
         nt = cross(self.norm, nr)
 
         rr = sqrt(sum(r**2))
         th = arctan2(sum(nr*self.ax2), sum(nr*self.ax1))
-     
-        from scipy.special import jv, jvp        
-        
-        Hr = -self.kg*self.kc/self.omega*self.amp*jvp(self.m, rr*self.kc)*cos(self.m*th)
-        Ht =  self.kg*self.m/self.omega/rr*self.amp*jv(self.m, rr*self.kc)*sin(self.m*th)
 
-        H = 1j*self.omega*(Hr*nr + Ht*nt) * exp(1j*self.phase*pi/180.)*self.AA*self.cnorm/mu0
-        
+        from scipy.special import jv, jvp
+
+        Hr = -self.kg*self.kc/self.omega*jvp(self.m, rr*self.kc)*cos(self.m*th)
+        Ht =  self.kg*self.m/self.omega/rr*jv(self.m, rr*self.kc)*sin(self.m*th)
+
+        H = 1j*self.omega*(Hr*nr + Ht*nt) *self.AA*self.cnorm/mu0
+
         if self.real:
             return H.real
         else:
             return H.imag
-
-        
