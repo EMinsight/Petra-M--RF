@@ -61,6 +61,7 @@ class EM3DUW_Port(EM3DUW_Bdry):
                                           inc_amp=inc_amp,
                                           inc_phase=inc_phase,
                                           port_idx=port_idx)
+
     def no_t1_elimination(self):
         return True
 
@@ -108,7 +109,6 @@ class EM3DUW_Port(EM3DUW_Bdry):
         self.ref_pt = v[3]
         self.vt.import_panel_value(self, v[4:])
 
-
     def panel4_param(self):
         ll = super(EM3DUW_Port, self).panel4_param()
         ll.append(['Varying (in time/for loop) RHS', False, 3, {"text": ""}])
@@ -137,12 +137,11 @@ class EM3DUW_Port(EM3DUW_Bdry):
         self.vt.preprocess_params(self)
         inc_amp, inc_phase, eps, mur = self.vt.make_value_or_expression(self)
 
-
     def preprocess_params(self, engine):
         # find normal (outward) vector...
         mesh = engine.get_emesh(mm=self)
 
-        #fespace = engine.fespaces[self.get_root_phys().dep_vars[0]]
+        # fespace = engine.fespaces[self.get_root_phys().dep_vars[0]]
 
         nbe = mesh.GetNBE()
         ibe = np.array([i for i in range(nbe)
@@ -168,13 +167,15 @@ class EM3DUW_Port(EM3DUW_Bdry):
             dprint1("Short Edge Vec." + list(self.b_vec).__repr__())
 
         elif self.mode == 'Coax(TEM)':
-            geom_data, vv = analyze_coax_geom(portmodel, mesh, ibe, norm, ref_ptx)
+            geom_data, vv = analyze_coax_geom(
+                portmodel, mesh, ibe, norm, ref_ptx)
             self.a = geom_data["a"]
             self.b = geom_data["b"]
             self.ctr = geom_data["ctr"]
 
         elif self.mode == 'Circular(TE)':
-            geom_data, vv = analyze_circular_geom(portmodel, mesh, ibe, norm, ref_ptx)
+            geom_data, vv = analyze_circular_geom(
+                portmodel, mesh, ibe, norm, ref_ptx)
             self.a = geom_data["a"]
             self.ctr = geom_data["ctr"]
         else:
@@ -185,13 +186,15 @@ class EM3DUW_Port(EM3DUW_Bdry):
         self.vt.preprocess_params(self)
         inc_amp, inc_phase, eps, mur = self.vt.make_value_or_expression(self)
         dprint1("E field pattern", eps, mur)
-        Et = C_Et(3, self, real=True, eps=eps, mur=mur)
+        Et = C_Et(3, self, real=True, eps=eps, mur=mur,
+                  m=self.mn[0], n=self.mn[1])
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Et.EvalValue(p).__repr__())
 
         dprint1("H field pattern")
         cnorm = self.get_cnorm()
-        Ht = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
+        Ht = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm,
+                    m=self.mn[0], n=self.mn[1])
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Ht.EvalValue(p).__repr__())
 
@@ -234,7 +237,7 @@ class EM3DUW_Port(EM3DUW_Bdry):
         C_Et, C_jwHt = self.get_coeff_cls()
 
         Et = C_Et(3, self, real=real, eps=eps, mur=mur, amp=amp,
-                   phase=phase)
+                  phase=phase, m=self.mn[0], n=self.mn[1])
 
         mesh = engine.get_mesh(mm=self)
         ibdr = mesh.bdr_attributes.ToList()
@@ -291,10 +294,12 @@ class EM3DUW_Port(EM3DUW_Bdry):
         if kfes == 2:
             fes_Et = engine.get_fes(self.get_root_phys(), 2)
 
-            Etr = C_Et(3, self, real=True, eps=eps, mur=mur)
+            Etr = C_Et(3, self, real=True, eps=eps, mur=mur,
+                       m=self.mn[0], n=self.mn[1])
             Etr = self.restrict_coeff(Etr, engine, vec=True)
 
-            Eti = C_Et(3, self, real=False, eps=eps, mur=mur)
+            Eti = C_Et(3, self, real=False, eps=eps, mur=mur,
+                       m=self.mn[0], n=self.mn[1])
             Eti = self.restrict_coeff(Eti, engine, vec=True)
 
             xr = engine.new_gf(fes_Et)
@@ -306,13 +311,12 @@ class EM3DUW_Port(EM3DUW_Bdry):
             arr = self.get_restriction_array(engine)
             xi.ProjectBdrCoefficientTangent(Eti, arr)
 
-
             if use_parallel:
                 v1 = CHypreVec(engine.x2X(xr).GetDataArray(),
                                engine.x2X(xi).GetDataArray())
             else:
                 v1 = engine.x2X(xr).GetDataArray() + 1j * \
-                        engine.x2X(xi).GetDataArray()
+                    engine.x2X(xi).GetDataArray()
                 v1 = Array2PyVec(v1)
 
             v1 = PyVec2PyMat(v1)
@@ -324,14 +328,17 @@ class EM3DUW_Port(EM3DUW_Bdry):
             cnorm = self.get_cnorm()
 
             lfHr = engine.new_lf(fes_Ht)
-            Htr = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm)
+            Htr = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm,
+                         m=self.mn[0], n=self.mn[1])
             Htr = self.restrict_coeff(Htr, engine, vec=True)
+
             intg = mfem.VectorFEDomainLFIntegrator(Htr)
             lfHr.AddBoundaryIntegrator(intg)
             lfHr.Assemble()
 
             lfHi = engine.new_lf(fes_Ht)
-            Hti = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
+            Hti = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm,
+                         m=self.mn[0], n=self.mn[1])
             Hti = self.restrict_coeff(Hti, engine, vec=True)
             intg = mfem.VectorFEDomainLFIntegrator(Hti)
             lfHi.AddBoundaryIntegrator(intg)
@@ -350,20 +357,20 @@ class EM3DUW_Port(EM3DUW_Bdry):
             et = engine.x2X(xr).GetDataArray() + \
                 1j * engine.x2X(xi).GetDataArray()
 
-            vec =  engine.b2B(lfHr).GetDataArray() + \
-                1j* engine.b2B(lfHi).GetDataArray()
+            vec = engine.b2B(lfHr).GetDataArray() - \
+                1j * engine.b2B(lfHi).GetDataArray()
 
             weight_E = np.sum(et.dot(vec))
             if use_parallel:
                 weight_E = np.sum(allgather(weight_E))
 
+            lfHi -= lfHi # complex conjugate                
             v2 = LF2PyVec(lfHr, lfHi, horizontal=True)
 
             #  note: -1 is used since t3 is 1 (not -1)
             v2 *= -1. / weight_E
 
             # weight = mfem.InnerProduct(engine.x2X(x), engine.b2B(lf2))
-
 
             v2 = PyVec2PyMat(v2.transpose())
             v2 = v2.transpose()
@@ -376,7 +383,7 @@ class EM3DUW_Port(EM3DUW_Bdry):
             amp = np.sqrt(np.abs(inc_wave))
 
             t4 = np.array(
-                    [[amp * np.exp(1j * phase / 180. * np.pi)]])
+                [[amp * np.exp(1j * phase / 180. * np.pi)]])
             t4 = Array2PyVec(t4)
 
         '''
@@ -388,4 +395,4 @@ class EM3DUW_Port(EM3DUW_Bdry):
         and it returns if Lagurangian will be saved.
         '''
         return (v1, v2, t3, t4, True)
-        #return (v1, None, t3, t4, True)
+        # return (v1, None, t3, t4, True)

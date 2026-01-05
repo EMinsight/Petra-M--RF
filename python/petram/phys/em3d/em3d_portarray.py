@@ -43,9 +43,9 @@ if use_parallel:
     import mfem.par as mfem
     from mfem.common.mpi_debug import nicePrint
 
-    #from mpi4py import MPI
-    #num_proc = MPI.COMM_WORLD.size
-    #myid     = MPI.COMM_WORLD.rank
+    # from mpi4py import MPI
+    # num_proc = MPI.COMM_WORLD.size
+    # myid     = MPI.COMM_WORLD.rank
 
 else:
     import mfem.ser as mfem
@@ -78,8 +78,10 @@ data = (('inc_amp', VtableElement('inc_amp',
                               default=1.0,
                               tip="relative permeability")),)
 
+
 def bdry_constraints():
-   return [EM3D_PortArray]
+    return [EM3D_PortArray]
+
 
 class EM3D_PortArray(EM3D_Bdry):
     vt = Vtable(data)
@@ -310,12 +312,14 @@ class EM3D_PortArray(EM3D_Bdry):
             self)
 
         dprint1("E field pattern", eps, mur)
-        Et = C_Et(3, self, real=True, eps=eps, mur=mur)
+        Et = C_Et(3, self, real=True, eps=eps, mur=mur,
+                  m=self.mn[0], n=self.mn[1])
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Et.EvalValue(p).__repr__())
         dprint1("H field pattern")
-        cnorm = self.get_root_phys().get_coeff_norm()        
-        Ht = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
+        cnorm = self.get_root_phys().get_coeff_norm()
+        Ht = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm,
+                    m=self.mn[0], n=self.mn[1])
         for p in vv:
             dprint1(p.__repr__() + ' : ' + Ht.EvalValue(p).__repr__())
 
@@ -340,7 +344,7 @@ class EM3D_PortArray(EM3D_Bdry):
 
     def get_coeff_cls(self):
         from petram.phys.common.rf_portmode import get_portmode_coeff_cls
-        
+
         return get_portmode_coeff_cls(self.mode)
 
     def has_lf_contribution(self, kfes):
@@ -398,8 +402,9 @@ class EM3D_PortArray(EM3D_Bdry):
             phase = np.angle(inc_wave) * 180 / np.pi
             amp = np.sqrt(np.abs(inc_wave))
             cnorm = self.get_root_phys().get_coeff_norm()
-            
-            Ht = C_jwHt(3, self, real=real, amp=amp, eps=eps, mur=mur, phase=phase, cnorm=cnorm)
+
+            Ht = C_jwHt(3, self, real=real, amp=amp, eps=eps, mur=mur, phase=phase, cnorm=cnorm,
+                        m=self.mn[0], n=self.mn[1])
             Ht = self.restrict_coeff(Ht, engine, vec=True, idx=[sel])
 
             intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht)
@@ -427,44 +432,66 @@ class EM3D_PortArray(EM3D_Bdry):
             self, engine, inc_amp, inc_phase, eps, mur, sel):
         C_Et, C_jwHt = self.get_coeff_cls()
         cnorm = self.get_root_phys().get_coeff_norm()
-        
+
         fes = engine.get_fes(self.get_root_phys(), 0)
-            
+
         lf1 = engine.new_lf(fes)
-        Ht1 = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm)
+        Ht1 = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm,
+                     m=self.mn[0], n=self.mn[1])
         Ht2 = self.restrict_coeff(Ht1, engine, vec=True, idx=[sel])
         intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht2)
         lf1.AddBoundaryIntegrator(intg)
         lf1.Assemble()
         lf1i = engine.new_lf(fes)
-        Ht3 = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm)
+        Ht3 = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm,
+                     m=self.mn[0], n=self.mn[1])
         Ht4 = self.restrict_coeff(Ht3, engine, vec=True, idx=[sel])
         intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht4)
         lf1i.AddBoundaryIntegrator(intg)
         lf1i.Assemble()
 
-        lf2 = engine.new_lf(fes)
-        Et = C_Et(3, self, real=True, eps=eps, mur=mur)
-        Et = self.restrict_coeff(Et, engine, vec=True, idx=[sel])
-        intg = mfem.VectorFEDomainLFIntegrator(Et)
-        lf2.AddBoundaryIntegrator(intg)
-        lf2.Assemble()
+        lf2r = engine.new_lf(fes)
+        Etr = C_Et(3, self, real=True, eps=eps, mur=mur,
+                  m=self.mn[0], n=self.mn[1])
+        Etr = self.restrict_coeff(Etr, engine, vec=True, idx=[sel])
+        intg = mfem.VectorFEDomainLFIntegrator(Etr)
+        lf2r.AddBoundaryIntegrator(intg)
+        lf2r.Assemble()
+        lf2i = engine.new_lf(fes)
+        Eti = C_Et(3, self, real=False, eps=eps, mur=mur,
+                   m=self.mn[0], n=self.mn[1])
+        Eti = self.restrict_coeff(Eti, engine, vec=True, idx=[sel])
+        intg = mfem.VectorFEDomainLFIntegrator(Eti)
+        lf2i.AddBoundaryIntegrator(intg)
+        lf2i.Assemble()
 
-        x = engine.new_gf(fes)
-        x.Assign(0.0)
         arr = self.get_restriction_array(engine)
-        x.ProjectBdrCoefficientTangent(Et, arr)
 
-        t4 = np.array(
-            [[np.sqrt(inc_amp) * np.exp(1j * inc_phase / 180. * np.pi)]])
-        weight = mfem.InnerProduct(engine.x2X(x), engine.b2B(lf2))
+        xr = engine.new_gf(fes)
+        xr.Assign(0.0)
+        xr.ProjectBdrCoefficientTangent(Etr, arr)
+        xi = engine.new_gf(fes)
+        xi.Assign(0.0)
+        xi.ProjectBdrCoefficientTangent(Eti, arr)
+
+        et = engine.x2X(xr).GetDataArray() + \
+                1j * engine.x2X(xi).GetDataArray()
+
+        vec = engine.b2B(lf2r).GetDataArray() - \
+                1j * engine.b2B(lf2i).GetDataArray()  # complex conjugate
+
+        weight = np.sum(et.dot(vec))
+        if use_parallel:
+            weight = np.sum(allgather(weight))
 
         #
         #
         #
         v1 = LF2PyVec(lf1, lf1i)
         v1 *= -1
-        v2 = LF2PyVec(lf2, None)
+        lf2i -= lf2i # complex conjugate
+        v2 = LF2PyVec(lf2r, lf2i, horizontal=True)
+
         # x  = LF2PyVec(x, None)
         #
         # transfer x and lf2 to True DoF space to operate InnerProduct
@@ -472,6 +499,10 @@ class EM3D_PortArray(EM3D_Bdry):
         # here lf2 and x is assume to be real value.
         #
         v2 *= 1. / weight
+
+        t4 = np.array(
+            [[np.sqrt(inc_amp) * np.exp(1j * inc_phase / 180. * np.pi)]])
+        
 
         '''
         v1 = PyVec2PyMat(v1)
@@ -516,7 +547,7 @@ class EM3D_PortArray(EM3D_Bdry):
             inc_a = inc_amp[kport]
 
             self.set_portparams(params)
-            #dprint1("phasing ", ph, sel)
+            # dprint1("phasing ", ph, sel)
             v1, v2, t4_1 = self.do_add_extra_contribution(
                 engine, inc_a, ph, eps, mur, sel)
 
@@ -533,6 +564,6 @@ class EM3D_PortArray(EM3D_Bdry):
         v2 = HStackPyVec(v2_arr)
         v2 = v2.transpose()
 
-        #print(v1.shape, v2.shape, t3.shape, t4.shape)
+        # print(v1.shape, v2.shape, t3.shape, t4.shape)
 
         return (v1, v2, t3, t4, True)
