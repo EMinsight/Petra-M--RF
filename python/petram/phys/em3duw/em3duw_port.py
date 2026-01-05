@@ -167,17 +167,19 @@ class EM3DUW_Port(EM3DUW_Bdry):
             dprint1("Short Edge Vec." + list(self.b_vec).__repr__())
 
         elif self.mode == 'Coax(TEM)':
-            geom_data, vv = analyze_coax_geom(
-                portmodel, mesh, ibe, norm, ref_ptx)
+            geom_data, vv = analyze_coax_geom(mesh, ibe, norm, rptx)
             self.a = geom_data["a"]
             self.b = geom_data["b"]
             self.ctr = geom_data["ctr"]
+            self.ax1 = geom_data["ax1"]
+            self.ax2 = geom_data["ax2"]
 
         elif self.mode == 'Circular(TE)':
-            geom_data, vv = analyze_circular_geom(
-                portmodel, mesh, ibe, norm, ref_ptx)
+            geom_data, vv = analyze_circular_geom(mesh, ibe, norm, rptx)
             self.a = geom_data["a"]
             self.ctr = geom_data["ctr"]
+            self.ax1 = geom_data["ax1"]
+            self.ax2 = geom_data["ax2"]
         else:
             assert False, "unknown mode"
 
@@ -312,8 +314,8 @@ class EM3DUW_Port(EM3DUW_Bdry):
             xi.ProjectBdrCoefficientTangent(Eti, arr)
 
             if use_parallel:
-                v1 = CHypreVec(engine.x2X(xr).GetDataArray(),
-                               engine.x2X(xi).GetDataArray())
+                v1 = CHypreVec(engine.x2X(xr).GetDataArray()*0,   #!!!!!!!!!!!!
+                               engine.x2X(xi).GetDataArray()*0)   #!!!!!!!!!!!!
             else:
                 v1 = engine.x2X(xr).GetDataArray() + 1j * \
                     engine.x2X(xi).GetDataArray()
@@ -340,6 +342,7 @@ class EM3DUW_Port(EM3DUW_Bdry):
             Hti = C_jwHt(3, self, real=False, eps=eps, mur=mur, cnorm=cnorm,
                          m=self.mn[0], n=self.mn[1])
             Hti = self.restrict_coeff(Hti, engine, vec=True)
+
             intg = mfem.VectorFEDomainLFIntegrator(Hti)
             lfHi.AddBoundaryIntegrator(intg)
             lfHi.Assemble()
@@ -363,8 +366,9 @@ class EM3DUW_Port(EM3DUW_Bdry):
             weight_E = np.sum(et.dot(vec))
             if use_parallel:
                 weight_E = np.sum(allgather(weight_E))
+            print("weight", weight_E)
 
-            lfHi -= lfHi # complex conjugate                
+            lfHi -= lfHi # complex conjugate
             v2 = LF2PyVec(lfHr, lfHi, horizontal=True)
 
             #  note: -1 is used since t3 is 1 (not -1)
@@ -382,7 +386,7 @@ class EM3DUW_Port(EM3DUW_Bdry):
             phase = np.angle(inc_wave) * 180 / np.pi
             amp = np.sqrt(np.abs(inc_wave))
 
-            t4 = np.array(
+            t4 =  np.array(
                 [[amp * np.exp(1j * phase / 180. * np.pi)]])
             t4 = Array2PyVec(t4)
 
@@ -395,4 +399,4 @@ class EM3DUW_Port(EM3DUW_Bdry):
         and it returns if Lagurangian will be saved.
         '''
         return (v1, v2, t3, t4, True)
-        # return (v1, None, t3, t4, True)
+        #return (None, v2, t3, t4, True)

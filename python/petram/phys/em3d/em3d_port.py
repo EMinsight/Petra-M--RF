@@ -434,7 +434,9 @@ class EM3D_Port(EM3D_Bdry):
         if use_parallel:
             weight = np.sum(allgather(weight))
             
-        #print("wegiht ", weight)
+        #nicePrint("wegiht ", weight)
+        #assert False, "here"
+        
         #
         #
         #
