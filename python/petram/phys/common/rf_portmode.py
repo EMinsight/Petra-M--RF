@@ -294,7 +294,7 @@ class C_CircularTE(mfem.VectorPyCoefficient):
         self.ax1 = bdry.ax1
         self.ax2 = bdry.ax2
         self.norm = bdry.norm
-        self.cnorm = 1.0
+        self.cnorm = cnorm
         self.phase = phase
 
         self.amp = amp
@@ -397,7 +397,7 @@ class C_jwHt_CircularTE(C_CircularTE):
             jvp(self.m, rr*self.kc)*exp(1j*self.m*th)
         #Ht = self.kg*self.m/self.omega/rr * \
         #    jv(self.m, rr*self.kc)*exp(1j*self.m*th)
-        if self.m > 0:
+        if self.m >= 0:
             Ht = -self.kg*self.m/self.omega*jv_x*exp(1j*self.m*th-1j*pi/2)
         else:
             Ht = -self.kg*self.m/self.omega*jv_x*exp(1j*self.m*th-1j*pi/2)*(-1)**self.m

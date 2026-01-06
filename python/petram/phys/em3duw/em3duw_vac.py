@@ -33,22 +33,25 @@ data = (('epsilonr', VtableElement('epsilonr', type='complex',
                                 default=0.0,
                                 tip="contuctivity")),)
 
+
 def EpsSigmaCoeff(exprs1, exprs2, ind_vars, l, g, omega, e_norm):
     #
     # (e_r e0 + i sgima/w)/e_norm
     #   cnorm is typically e0
     #
-    coeff1 = SCoeff(exprs1, ind_vars, l, g, return_complex=True, scale=epsilon0/e_norm)
-    coeff2 = SCoeff(exprs2, ind_vars, l, g, return_complex=True, scale=1j/omega/e_norm)
+    coeff1 = SCoeff(exprs1, ind_vars, l, g,
+                    return_complex=True, scale=epsilon0/e_norm)
+    coeff2 = SCoeff(exprs2, ind_vars, l, g,
+                    return_complex=True, scale=1j/omega/e_norm)
 
     return coeff1 + coeff2
+
 
 def MuCoeff(exprs, ind_vars, l, g, omega, mu_norm):
     # mu_r *mu_0/mu_norm
     fac = mu0/mu_norm
     coeff = SCoeff(exprs, ind_vars, l, g, return_complex=True, scale=fac)
     return coeff
-
 
 
 def domain_constraints():
@@ -103,7 +106,14 @@ class EM3DUW_Vac(EM3DUW_Domain):
 
         cf1, cf2, cf3, cf4, cf5, cf6 = self.get_coeffs()
         TrialSpace, TestSpace = self.space_idx()
-        #a.StoreMatrices()  # needed for AMR
+        # a.StoreMatrices()  # needed for AMR
+
+        #  attempt to increase the integration order to avoid non SPD G-matrix
+        # phys = self.get_root_phys()
+        # mesh = engine.emeshes[phys.emesh_idx]
+        # geom = mesh.GetElementGeometry(0)
+        # ir = mfem.IntRules.Get(geom, 2*phys.test_order+2)
+        ir = None
 
         # xxxxxx -i ω ϵ (E , G) = i (- ω ϵ E, G)
         # i ω ϵ (E , G)
@@ -111,8 +121,8 @@ class EM3DUW_Vac(EM3DUW_Domain):
                                 mfem.VectorFEMassIntegrator,
                                 TrialSpace["E_space"],
                                 TestSpace["G_space"],
-                                transpose=True,)
-        #a.AddTrialIntegrator(None,
+                                transpose=True, ir=ir)
+        # a.AddTrialIntegrator(None,
         #                     mfem.TransposeIntegrator(
         #                         mfem.VectorFEMassIntegrator(cf1)),
         #                     TrialSpace["E_space"],
@@ -124,8 +134,8 @@ class EM3DUW_Vac(EM3DUW_Domain):
                                 mfem.VectorFEMassIntegrator,
                                 TrialSpace["H_space"],
                                 TestSpace["F_space"],
-                                transpose=True,)
-        #a.AddTrialIntegrator(None, mfem.TransposeIntegrator(
+                                transpose=True, ir=ir)
+        # a.AddTrialIntegrator(None, mfem.TransposeIntegrator(
         #    mfem.VectorFEMassIntegrator(cf2)),
         #    TrialSpace["H_space"],
         #    TestSpace["F_space"])
@@ -135,8 +145,8 @@ class EM3DUW_Vac(EM3DUW_Domain):
         self.add_dpg_integrator(engine, cf6, a.AddTestIntegrator,
                                 mfem.VectorFEMassIntegrator,
                                 TestSpace["F_space"],
-                                TestSpace["F_space"],)
-        #a.AddTestIntegrator(mfem.VectorFEMassIntegrator(mu2omeg2_cf), None,
+                                TestSpace["F_space"], ir=ir)
+        # a.AddTestIntegrator(mfem.VectorFEMassIntegrator(mu2omeg2_cf), None,
         #                    TestSpace["F_space"],
         #                    TestSpace["F_space"])
 
@@ -146,8 +156,8 @@ class EM3DUW_Vac(EM3DUW_Domain):
         self.add_dpg_integrator(engine, cf4, a.AddTestIntegrator,
                                 mfem.MixedVectorWeakCurlIntegrator,
                                 TestSpace["F_space"],
-                                TestSpace["G_space"],)
-        #a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf3),
+                                TestSpace["G_space"], ir=ir)
+        # a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf3),
         #                    TestSpace["F_space"],
         #                    TestSpace["G_space"])
 
@@ -156,18 +166,18 @@ class EM3DUW_Vac(EM3DUW_Domain):
         self.add_dpg_integrator(engine, cf1, a.AddTestIntegrator,
                                 mfem.MixedVectorCurlIntegrator,
                                 TestSpace["F_space"],
-                                TestSpace["G_space"],)
-        #a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf1),
+                                TestSpace["G_space"], ir=ir)
+        # a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf1),
         #                    TestSpace["F_space"],
         #                    TestSpace["G_space"])
-        # (2, 1)
+        # (1, 2)
         # *****i ω μ (∇ × G,δF)
         # (-i ω μ ∇ × G,δF)
         self.add_dpg_integrator(engine, cf2, a.AddTestIntegrator,
                                 mfem.MixedVectorCurlIntegrator,
                                 TestSpace["G_space"],
                                 TestSpace["F_space"],)
-        #a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf2),
+        # a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf2),
         #                    TestSpace["G_space"],
         #                    TestSpace["F_space"])
 
@@ -177,7 +187,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
                                 mfem.MixedVectorWeakCurlIntegrator,
                                 TestSpace["G_space"],
                                 TestSpace["F_space"],)
-        #a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf4),
+        # a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf4),
         #                    TestSpace["G_space"],
         #                    TestSpace["F_space"])
         # (2, 2)
@@ -186,10 +196,9 @@ class EM3DUW_Vac(EM3DUW_Domain):
                                 mfem.VectorFEMassIntegrator,
                                 TestSpace["G_space"],
                                 TestSpace["G_space"],)
-        #a.AddTestIntegrator(mfem.VectorFEMassIntegrator(cf5), None,
+        # a.AddTestIntegrator(mfem.VectorFEMassIntegrator(cf5), None,
         #                    TestSpace["G_space"],
         #                    TestSpace["G_space"])
-
 
     def add_domain_variables(self, v, n, suffix, ind_vars):
         from petram.helper.variables import add_constant

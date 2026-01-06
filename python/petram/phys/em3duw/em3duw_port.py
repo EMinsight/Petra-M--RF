@@ -314,10 +314,10 @@ class EM3DUW_Port(EM3DUW_Bdry):
             xi.ProjectBdrCoefficientTangent(Eti, arr)
 
             if use_parallel:
-                v1 = CHypreVec(engine.x2X(xr).GetDataArray()*0,   #!!!!!!!!!!!!
-                               engine.x2X(xi).GetDataArray()*0)   #!!!!!!!!!!!!
+                v1 = CHypreVec(engine.x2X(xr).GetDataArray(),   # !!!!!!!!!!
+                               engine.x2X(xi).GetDataArray())  # !!!!!!!!!!
             else:
-                v1 = engine.x2X(xr).GetDataArray() + 1j * \
+                v1 = engine.x2X(xr).GetDataArray() - 1j * \
                     engine.x2X(xi).GetDataArray()
                 v1 = Array2PyVec(v1)
 
@@ -329,6 +329,8 @@ class EM3DUW_Port(EM3DUW_Bdry):
             fes_Ht = engine.get_fes(self.get_root_phys(), 3)
             cnorm = self.get_cnorm()
 
+            print(cnorm)
+            
             lfHr = engine.new_lf(fes_Ht)
             Htr = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm,
                          m=self.mn[0], n=self.mn[1])
@@ -364,17 +366,19 @@ class EM3DUW_Port(EM3DUW_Bdry):
                 1j * engine.b2B(lfHi).GetDataArray()
 
             weight_E = np.sum(et.dot(vec))
+            v1 = np.sum(vec.dot(vec))
+            v2 = np.sum(et.dot(et))
             if use_parallel:
                 weight_E = np.sum(allgather(weight_E))
-            print("weight", weight_E)
+                v1 = np.sum(allgather(v1))
+                v2 = np.sum(allgather(v2))
+            print("weight", weight_E, v1, v2)
 
-            lfHi -= lfHi # complex conjugate
+            lfHi -= lfHi  # complex conjugate
             v2 = LF2PyVec(lfHr, lfHi, horizontal=True)
 
             #  note: -1 is used since t3 is 1 (not -1)
             v2 *= -1. / weight_E
-
-            # weight = mfem.InnerProduct(engine.x2X(x), engine.b2B(lf2))
 
             v2 = PyVec2PyMat(v2.transpose())
             v2 = v2.transpose()
@@ -386,8 +390,8 @@ class EM3DUW_Port(EM3DUW_Bdry):
             phase = np.angle(inc_wave) * 180 / np.pi
             amp = np.sqrt(np.abs(inc_wave))
 
-            t4 =  np.array(
-                [[amp * np.exp(1j * phase / 180. * np.pi)]])
+            t4 = np.array(
+                [[amp * np.exp(1j * phase / 180. * np.pi)]])*0.0 #!!!!!!!!!!!!!!!!!
             t4 = Array2PyVec(t4)
 
         '''
@@ -398,5 +402,5 @@ class EM3DUW_Port(EM3DUW_Bdry):
 
         and it returns if Lagurangian will be saved.
         '''
+        
         return (v1, v2, t3, t4, True)
-        #return (None, v2, t3, t4, True)

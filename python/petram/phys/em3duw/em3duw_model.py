@@ -97,6 +97,7 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
 
         TrialSpace, TestSpace = self.space_idx()
         one = mfem.ConstantCoefficient(1.0)
+        one_scaled = mfem.ConstantCoefficient(1)
 
         # < n×Ĥ ,G>
         # < n×Ê,F>
@@ -121,13 +122,13 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
                                 transpose=True)
         '''
         a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
-                            None,
-                            TrialSpace["E_space"],
-                            TestSpace["F_space"])
+                             None,
+                             TrialSpace["E_space"],
+                             TestSpace["F_space"])
         a.AddTrialIntegrator(mfem.TransposeIntegrator(mfem.MixedCurlIntegrator(one)),
-                            None,
-                            TrialSpace["H_space"],
-                            TestSpace["G_space"])
+                             None,
+                             TrialSpace["H_space"],
+                             TestSpace["G_space"])
 
         # test integrators
         # (∇×G ,∇× δG)
@@ -158,10 +159,10 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
         a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
                             TestSpace["G_space"],
                             TestSpace["G_space"])
-        a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
+        a.AddTestIntegrator(mfem.CurlCurlIntegrator(one_scaled), None,
                             TestSpace["F_space"],
                             TestSpace["F_space"])
-        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one_scaled), None,
                             TestSpace["F_space"],
                             TestSpace["F_space"])
 
@@ -288,7 +289,7 @@ class EM3DUW(EMUWPhysModule):
         val = super(EM3DUW, self).get_panel1_value()
         val.extend([  # self.freq_txt,
             self.ind_vars, self.dep_vars_suffix,
-            names, names2, self.static_cond ])
+            names, names2, self.static_cond])
         return val
 
     def import_panel1_value(self, v):
@@ -437,6 +438,13 @@ class EM3DUW(EMUWPhysModule):
             return True
         return False
 
+    @property
+    def test_order(self):
+        order = self.order
+        delta_order = 1
+        torder = order + delta_order
+        return torder
+
     def get_diagform_callable(self, fes_arr):
         def callable(fes_arr=fes_arr):
             if use_parallel:
@@ -446,9 +454,8 @@ class EM3DUW(EMUWPhysModule):
                 dpg_form = mfem.dpg.ComplexDPGWeakForm
 
             order = self.order
+            test_order = self.test_order
 
-            delta_order = 1
-            test_order = order + delta_order
             dim = 3
 
             F_fec = mfem.ND_FECollection(test_order, dim)
