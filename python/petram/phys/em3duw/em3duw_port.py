@@ -293,6 +293,7 @@ class EM3DUW_Port(EM3DUW_Bdry):
 
         C_Et, C_jwHt = self.get_coeff_cls()
 
+
         if kfes == 2:
             fes_Et = engine.get_fes(self.get_root_phys(), 2)
 
@@ -314,23 +315,24 @@ class EM3DUW_Port(EM3DUW_Bdry):
             xi.ProjectBdrCoefficientTangent(Eti, arr)
 
             if use_parallel:
-                v1 = CHypreVec(engine.x2X(xr).GetDataArray(),   # !!!!!!!!!!
+                t1 = CHypreVec(engine.x2X(xr).GetDataArray(),  # !!!!!!!!!!
                                engine.x2X(xi).GetDataArray())  # !!!!!!!!!!
             else:
-                v1 = engine.x2X(xr).GetDataArray() - 1j * \
+                t1 = engine.x2X(xr).GetDataArray() - 1j * \
                     engine.x2X(xi).GetDataArray()
-                v1 = Array2PyVec(v1)
+                t1 = Array2PyVec(v1)
 
-            v1 = PyVec2PyMat(v1)
-            v2 = None
+            t1 = PyVec2PyMat(t1)
+            t2 = None
             t3 = None
             t4 = None
+
         else:
             fes_Ht = engine.get_fes(self.get_root_phys(), 3)
             cnorm = self.get_cnorm()
 
-            print(cnorm)
-            
+            #print("cnorm", cnorm)
+
             lfHr = engine.new_lf(fes_Ht)
             Htr = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm,
                          m=self.mn[0], n=self.mn[1])
@@ -366,23 +368,25 @@ class EM3DUW_Port(EM3DUW_Bdry):
                 1j * engine.b2B(lfHi).GetDataArray()
 
             weight_E = np.sum(et.dot(vec))
-            v1 = np.sum(vec.dot(vec))
-            v2 = np.sum(et.dot(et))
+            #v1 = np.sum(vec.dot(vec))
+            #v2 = np.sum(et.dot(et))
             if use_parallel:
                 weight_E = np.sum(allgather(weight_E))
-                v1 = np.sum(allgather(v1))
-                v2 = np.sum(allgather(v2))
-            print("weight", weight_E, v1, v2)
+                #v1 = np.sum(allgather(v1))
+                #v2 = np.sum(allgather(v2))
+            #print("weight", weight_E, v1, v2)
 
-            lfHi -= lfHi  # complex conjugate
-            v2 = LF2PyVec(lfHr, lfHi, horizontal=True)
+            # t1
+            t1 = None
 
-            #  note: -1 is used since t3 is 1 (not -1)
-            v2 *= -1. / weight_E
+            # t2
+            lfHi *= -1  # complex conjugate
+            t2 = LF2PyVec(lfHr, lfHi, horizontal=True)
+            t2 *= -1. / weight_E  #  -1 is used since t3 is 1 (not -1)
+            t2 = PyVec2PyMat(t2.transpose())
+            t2 = t2.transpose()
 
-            v2 = PyVec2PyMat(v2.transpose())
-            v2 = v2.transpose()
-            v1 = None
+            # t3
             t3 = IdentityPyMat(1, diag=1)
 
             # t4
@@ -391,7 +395,7 @@ class EM3DUW_Port(EM3DUW_Bdry):
             amp = np.sqrt(np.abs(inc_wave))
 
             t4 = np.array(
-                [[amp * np.exp(1j * phase / 180. * np.pi)]])*0.0 #!!!!!!!!!!!!!!!!!
+                [[amp * np.exp(1j * phase / 180. * np.pi)]]) #!!!!!!!!!!!!!!!!!
             t4 = Array2PyVec(t4)
 
         '''
@@ -402,5 +406,5 @@ class EM3DUW_Port(EM3DUW_Bdry):
 
         and it returns if Lagurangian will be saved.
         '''
-        
-        return (v1, v2, t3, t4, True)
+
+        return (t1, t2, t3, t4, True)

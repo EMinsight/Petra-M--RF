@@ -318,24 +318,24 @@ class C_CircularTE(mfem.VectorPyCoefficient):
     def compute_jv_x(self, rr):
         from scipy.special import jv
         from math import factorial
-        
+
         m = abs(self.m)
         kc = self.kc
-        
+
         if m > 0:
             x = rr*kc
             if x < 0.001:
                 jv_x = 0
                 for i in range(5):
                   jv_x += (-1)**i /factorial(i)/factorial(m+i) *x**(2*i + m-1)/2**(2*i + m)
-            else:              
+            else:
                 jv_x = jv(m, x)/x
             jv_x = jv_x*kc
         else:
             return 0
 
         if m < 0:
-            jv_x*(-1)**m        
+            jv_x*(-1)**m
         return jv_x
 
 class C_Et_CircularTE(C_CircularTE):
@@ -344,9 +344,9 @@ class C_Et_CircularTE(C_CircularTE):
         rr = sqrt(sum(r**2))
         th = arctan2(sum(r*self.ax2), sum(r*self.ax1))
 
-        nr = self.ax1*cos(th) + self.ax2*sin(th) 
+        nr = self.ax1*cos(th) + self.ax2*sin(th)
         nt = -self.ax1*sin(th) + self.ax2*cos(th)
-        
+
         #r = (x - self.ctr)
         #nr = r/sqrt(sum(r**2))
         #nt = cross(self.norm, nr)
@@ -354,8 +354,8 @@ class C_Et_CircularTE(C_CircularTE):
         #th = arctan2(sum(nr*self.ax2), sum(nr*self.ax1))
 
         jv_x = self.compute_jv_x(rr)
-        
-        from scipy.special import jvp            
+
+        from scipy.special import jvp
         # Er =  self.m*self.amp/rr*jv(self.m, rr*self.kc)*sin(self.m*th)
         # Et =  self.kc*self.amp*jvp(self.m, rr*self.kc)*cos(self.m*th)
 
@@ -364,33 +364,31 @@ class C_Et_CircularTE(C_CircularTE):
             Er = self.m * jv_x*exp(1j*self.m*th-1j*pi/2)
         else:
             Er = self.m * jv_x*exp(1j*self.m*th-1j*pi/2)*(-1)**self.m
-            
+
         Et = self.kc*jvp(self.m, rr*self.kc)*exp(1j*self.m*th)
+
 
         E = (Er*nr + Et*nt) * self.AA
 
-        fac = 0.5 if self.m != 0 else 1
-        #fac = 1.0
-        
         if self.real:
-            return fac*E.real 
+            return E.real
         else:
-            return fac*E.imag
+            return E.imag
 
 
 class C_jwHt_CircularTE(C_CircularTE):
     def EvalValue(self, x):
         r = (x - self.ctr)
-        rr = sqrt(sum(r**2))        
+        rr = sqrt(sum(r**2))
         th = arctan2(sum(r*self.ax2), sum(r*self.ax1))
 
-        nr = self.ax1*cos(th) + self.ax2*sin(th) 
-        nt = -self.ax1*sin(th) + self.ax2*cos(th) 
+        nr = self.ax1*cos(th) + self.ax2*sin(th)
+        nt = -self.ax1*sin(th) + self.ax2*cos(th)
 
-        jv_x = self.compute_jv_x(rr)        
+        jv_x = self.compute_jv_x(rr)
 
         from scipy.special import jvp
-        
+
         # Hr = -self.kg*self.kc/self.omega*jvp(self.m, rr*self.kc)*cos(self.m*th)
         # Ht =  self.kg*self.m/self.omega/rr*jv(self.m, rr*self.kc)*sin(self.m*th)
         Hr = self.kg*self.kc/self.omega * \
@@ -401,7 +399,7 @@ class C_jwHt_CircularTE(C_CircularTE):
             Ht = -self.kg*self.m/self.omega*jv_x*exp(1j*self.m*th-1j*pi/2)
         else:
             Ht = -self.kg*self.m/self.omega*jv_x*exp(1j*self.m*th-1j*pi/2)*(-1)**self.m
-           
+
         H = 1j*self.omega*(Hr*nr + Ht*nt) * self.AA*self.cnorm /mu0
 
         if self.real:

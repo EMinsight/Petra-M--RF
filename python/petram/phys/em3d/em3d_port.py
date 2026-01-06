@@ -25,7 +25,7 @@ dprint1, dprint2, dprint3 = debug.init_dprints('EM3D_Port')
 if use_parallel:
     import mfem.par as mfem
     from mfem.common.mpi_debug import nicePrint
-    from petram.helper.mpi_recipes import *    
+    from petram.helper.mpi_recipes import *
 else:
     import mfem.ser as mfem
     nicePrint = dprint1
@@ -384,6 +384,9 @@ class EM3D_Port(EM3D_Bdry):
 
         fes = engine.get_fes(self.get_root_phys(), 0)
 
+        #
+        #  evaulate vectors for t1
+        #
         lf1 = engine.new_lf(fes)
         Ht1 = C_jwHt(3, self, real=True, eps=eps, mur=mur, cnorm=cnorm,
                      m= self.mn[0], n=self.mn[1])
@@ -399,6 +402,9 @@ class EM3D_Port(EM3D_Bdry):
         lf1i.AddBoundaryIntegrator(intg)
         lf1i.Assemble()
 
+        #
+        #  evaulate vectors for t2
+        #
         lf2r = engine.new_lf(fes)
         Etr = C_Et(3, self, real=True, eps=eps, mur=mur,
                   m=self.mn[0], n=self.mn[1])
@@ -406,7 +412,7 @@ class EM3D_Port(EM3D_Bdry):
         intg = mfem.VectorFEDomainLFIntegrator(Etr)
         lf2r.AddBoundaryIntegrator(intg)
         lf2r.Assemble()
-        
+
         lf2i = engine.new_lf(fes)
         Eti = C_Et(3, self, real=False, eps=eps, mur=mur,
                    m=self.mn[0], n=self.mn[1])
@@ -416,7 +422,7 @@ class EM3D_Port(EM3D_Bdry):
         lf2i.Assemble()
 
         arr = self.get_restriction_array(engine)
-        
+
         xr = engine.new_gf(fes)
         xr.Assign(0.0)
         xr.ProjectBdrCoefficientTangent(Etr, arr)
@@ -424,47 +430,39 @@ class EM3D_Port(EM3D_Bdry):
         xi.Assign(0.0)
         xi.ProjectBdrCoefficientTangent(Eti, arr)
 
+        # transfer x and lf2 to True DoF space to evaluate inner-product
         et = engine.x2X(xr).GetDataArray() + \
                 1j * engine.x2X(xi).GetDataArray()
-
         vec = engine.b2B(lf2r).GetDataArray() -  \
                 1j * engine.b2B(lf2i).GetDataArray() # complex conjugate
-
         weight = np.sum(et.dot(vec))
         if use_parallel:
             weight = np.sum(allgather(weight))
-            
+
         #nicePrint("wegiht ", weight)
-        #assert False, "here"
-        
-        #
-        #
-        #
-        v1 = LF2PyVec(lf1, lf1i)
-        #v1 *= -1
-        lf2i -= lf2i # complex conjugate
-        v2 = LF2PyVec(lf2r, lf2i, horizontal=True)
-        #
-        # transfer x and lf2 to True DoF space to operate InnerProduct
-        #
-        # here lf2 and x is assume to be real value.
-        #
-        v2 *= 1. / weight
 
-        v1 = PyVec2PyMat(v1)
-        v2 = PyVec2PyMat(v2.transpose())
+        #  t1
+        t1 = LF2PyVec(lf1, lf1i)
+        #t1 *= -1
+        t1 = PyVec2PyMat(t1)
 
+
+        # t2
+        lf2i *= -1 # complex conjugate
+        t2 = LF2PyVec(lf2r, lf2i, horizontal=True)
+        t2 *= 1. / weight
+        t2 = PyVec2PyMat(t2.transpose())
+        t2 = t2.transpose()
+
+        # t3
         t3 = IdentityPyMat(1, diag=-1)
-
-        v2 = v2.transpose()
-
         # t4
         inc_wave = inc_amp * np.exp(1j * inc_phase / 180. * np.pi)
         phase = np.angle(inc_wave) * 180 / np.pi
         amp = np.sqrt(np.abs(inc_wave))
 
         t4 = np.array(
-            [[amp * np.exp(1j * phase / 180. * np.pi)]]) #!!!!!!!!!!!!!!!!!!!
+            [[amp * np.exp(1j * phase / 180. * np.pi)]])
         t4 = Array2PyVec(t4)
 
         '''
@@ -475,6 +473,6 @@ class EM3D_Port(EM3D_Bdry):
 
         and it returns if Lagurangian will be saved.
         '''
-        return (v1, v2, t3, t4, True)
-        #return (None, v2, t3, t4, True)
-        
+        return (t1, t2, t3, t4, True)
+
+        #return (None, t2, t3, t4, True)
