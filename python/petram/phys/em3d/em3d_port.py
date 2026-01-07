@@ -69,6 +69,9 @@ class EM3D_Port(EM3D_Bdry):
         return self.get_root_phys().dep_vars[0] + "_port_" + str(self.port_idx)
 
     def get_probes(self):
+        if self.fixed_total_field:
+            return []
+
         return [self.get_root_phys().dep_vars[0] + "_port_" + str(self.port_idx)]
 
     def attribute_set(self, v):
@@ -86,6 +89,7 @@ class EM3D_Port(EM3D_Bdry):
         v['sel_index'] = []
         v['isTimeDependent_RHS'] = True
         v['ref_pt'] = '1'
+        v['fixed_total_field'] = False
         return v
 
     def panel1_param(self):
@@ -93,13 +97,15 @@ class EM3D_Port(EM3D_Bdry):
                  ["mode", self.mode, 4, {"readonly": True,
                                          "choices": ["TE", "TEM", "Coax(TEM)", "Circular(TE)"]}],
                  ["m/n", ','.join(str(x) for x in self.mn), 0, {}],
-                 ["ref. pt.", "", 0, {}],] +
+                 ["ref. pt.", "", 0, {}],
+                 ["fixed excitaiton", True, 3, {"text": ""}],] +
                 self.vt.panel_param(self))
 
     def get_panel1_value(self):
         return ([str(self.port_idx),
                  self.mode, ','.join(str(x) for x in self.mn),
-                 self.ref_pt] +
+                 self.ref_pt,
+                 self.fixed_total_field] +
                 self.vt.get_panel_value(self))
 
     def import_panel1_value(self, v):
@@ -107,7 +113,8 @@ class EM3D_Port(EM3D_Bdry):
         self.mode = v[1]
         self.mn = [int(x) for x in v[2].split(',')]
         self.ref_pt = v[3]
-        self.vt.import_panel_value(self, v[4:])
+        self.fixed_total_field = v[4]
+        self.vt.import_panel_value(self, v[5:])
 
     def panel4_param(self):
         ll = super(EM3D_Port, self).panel4_param()
@@ -250,17 +257,24 @@ class EM3D_Port(EM3D_Bdry):
         b.AddBoundaryIntegrator(intg)
 
     def has_extra_DoF(self, kfes):
+        if self.fixed_total_field:
+            return False
         if kfes != 0:
             return False
         return True
 
     def get_extra_NDoF(self):
+        if self.fixed_total_field:
+            return 0
         return 1
 
     def is_extra_RHSonly(self):
         return True
 
     def postprocess_extra(self, sol, flag, sol_extra):
+        if self.fixed_total_field:
+            return
+
         name = self.name() + '_' + str(self.port_idx)
         sol_extra[name] = sol.toarray()
 
