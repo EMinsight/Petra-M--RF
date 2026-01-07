@@ -166,80 +166,6 @@ class EM3D_Port(EM3D_Bdry):
         dprint1("Ref. Point" + str(rptx))
 
         if str(self.mode).upper().strip() in ['TE', 'TM', 'TEM']:
-            '''
-            edges = np.array([mesh.GetBdrElementEdges(i)[0]
-                              for i in ibe]).flatten()
-            d = {}
-            for x in edges:
-                d[x] = x in d
-            edges = [x for x in d.keys() if not d[x]]
-            ivert = [mesh.GetEdgeVertices(x) for x in edges]
-            ivert = connect_pairs(ivert)
-            vv = np.vstack([mesh.GetVertexArray(i) for i in ivert])
-
-            self.ctr = (np.max(vv, 0) + np.min(vv, 0)) / 2.0
-            dprint1("Center " + list(self.ctr).__repr__())
-
-            # rectangular port
-            #idx = np.argsort(np.sqrt(np.sum((vv - self.ctr)**2,1)))
-            #corners = vv[idx[-4:],:]
-            # since vv is cyclic I need to omit last one element here..
-            idx = np.argsort(np.sqrt(np.sum((vv[:-1] - self.ctr)**2, 1)))
-            corners = vv[:-1][idx[-4:], :]
-            for i in range(4):
-                dprint1("Corner " + list(corners[i]).__repr__())
-            tmp = np.sort(np.sqrt(np.sum((corners - corners[0, :])**2, 1)))
-            self.b = tmp[1]
-            self.a = tmp[2]
-            tmp = np.argsort(np.sqrt(np.sum((corners - corners[0, :])**2, 1)))
-            self.c = corners[0]  # corner
-            self.b_vec = corners[tmp[1]] - corners[0]
-            self.a_vec = np.cross(self.b_vec, self.norm)
-#            self.a_vec = corners[tmp[2]]-corners[0]
-            self.b_vec = self.b_vec / np.sqrt(np.sum(self.b_vec**2))
-            self.a_vec = self.a_vec / np.sqrt(np.sum(self.a_vec**2))
-            if np.sum(np.cross(self.a_vec, self.b_vec) * self.norm) > 0:
-                self.a_vec = -self.a_vec
-
-            if self.mode == 'TEM':
-                for i in range(nbe):
-                    if (edges[0] in mesh.GetBdrElementEdges(i)[0] and
-                            self._sel_index[0] != mesh.GetBdrAttribute(i)):
-                        dprint1("Checking surface :", mesh.GetBdrAttribute(i))
-                        attr = mesh.GetBdrAttribute(i)
-                        break
-                for node in self.get_root_phys().walk():
-                    if not isinstance(node, Bdry):
-                        continue
-                    if not node.enabled:
-                        continue
-                    if attr in node._sel_index:
-                        break
-                from petram.model import Pair
-                ivert = mesh.GetEdgeVertices(edges[0])
-                vect = mesh.GetVertexArray(
-                    ivert[0]) - mesh.GetVertexArray(ivert[1])
-                vect = vect / np.sqrt(np.sum(vect**2))
-                do_swap = False
-                if (isinstance(node, Pair) and
-                        np.abs(np.sum(self.a_vec * vect)) > 0.9):
-                    do_swap = True
-                if (not isinstance(node, Pair) and
-                        np.abs(np.sum(self.a_vec * vect)) < 0.001):
-                    do_swap = True
-                if do_swap:
-                    dprint1("swapping port edges")
-                    tmp = self.a_vec
-                    self.a_vec = -self.b_vec
-                    self.b_vec = tmp
-                    # - sign is to keep a \times b direction.
-                    tmp = self.a
-                    self.a = self.b
-                    self.b = tmp
-            if self.a_vec[np.argmax(np.abs(self.a_vec))] < 0:
-                self.a_vec = -self.a_vec
-                self.b_vec = -self.b_vec
-            '''
             geom_data, vv = analyze_rect_geom(self, mesh, ibe, norm)
             self.a = geom_data["a"]
             self.a_vec = geom_data["a_vec"]
@@ -252,27 +178,6 @@ class EM3D_Port(EM3D_Bdry):
             dprint1("Short Edge Vec." + list(self.b_vec).__repr__())
 
         elif self.mode == 'Coax(TEM)':
-            '''
-            edges = np.array([mesh.GetBdrElementEdges(i)[0]
-                              for i in ibe]).flatten()
-            d = {}
-            for x in edges:
-                d[x] = x in d
-            edges = [x for x in d.keys() if not d[x]]
-            ivert = [mesh.GetEdgeVertices(x) for x in edges]
-            iv1, iv2 = connect_pairs(ivert)  # index of outer/inner circles
-            vv1 = np.vstack([mesh.GetVertexArray(i) for i in iv1])
-            vv2 = np.vstack([mesh.GetVertexArray(i) for i in iv2])
-            ctr1, a1 = find_circle_center_radius(vv1, self.norm)
-            ctr2, b1 = find_circle_center_radius(vv2, self.norm)
-            self.ctr = np.mean((ctr1, ctr2), 0)
-            self.a = a1 if a1 < b1 else b1
-            self.b = a1 if a1 > b1 else b1
-            dprint1("Big R:  " + self.b.__repr__())
-            dprint1("Small R: " + self.a.__repr__())
-            dprint1("Center:  " + self.ctr.__repr__())
-            vv = vv1
-            '''
             geom_data, vv = analyze_coax_geom(mesh, ibe, norm, rptx)
             self.a = geom_data["a"]
             self.b = geom_data["b"]
@@ -450,18 +355,19 @@ class EM3D_Port(EM3D_Bdry):
         # t2
         lf2i *= -1 # complex conjugate
         t2 = LF2PyVec(lf2r, lf2i, horizontal=True)
-        t2 *= 1. / weight
+        t2 *= -1. / weight
         t2 = PyVec2PyMat(t2.transpose())
         t2 = t2.transpose()
 
         # t3
-        t3 = IdentityPyMat(1, diag=-1)
+        t3 = IdentityPyMat(1)
+        #t3 = IdentityPyMat(1, diag=-1)
         # t4
         inc_wave = inc_amp * np.exp(1j * inc_phase / 180. * np.pi)
         phase = np.angle(inc_wave) * 180 / np.pi
         amp = np.sqrt(np.abs(inc_wave))
 
-        t4 = np.array(
+        t4 = -np.array(
             [[amp * np.exp(1j * phase / 180. * np.pi)]])
         t4 = Array2PyVec(t4)
 
