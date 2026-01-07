@@ -318,11 +318,13 @@ class EM3DUW_Port(EM3DUW_Bdry):
                 t1 = CHypreVec(engine.x2X(xr).GetDataArray(),  # !!!!!!!!!!
                                engine.x2X(xi).GetDataArray())  # !!!!!!!!!!
             else:
-                t1 = engine.x2X(xr).GetDataArray() - 1j * \
+                t1 = engine.x2X(xr).GetDataArray() + 1j * \
                     engine.x2X(xi).GetDataArray()
-                t1 = Array2PyVec(v1)
+                t1 = np.atleast_2d(t1).transpose()
+                #t1 = Array2PyVec(t1)
 
             t1 = PyVec2PyMat(t1)
+            #t1 = None
             t2 = None
             t3 = None
             t4 = None
