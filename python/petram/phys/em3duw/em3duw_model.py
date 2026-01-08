@@ -271,6 +271,8 @@ class EM3DUW(EMUWPhysModule):
         v["ind_vars"] = 'x, y, z'
         v["dep_vars_suffix"] = ''
         v["static_cond"] = False
+
+        self._use_amr = False        
         return v
 
     def panel1_param(self):
