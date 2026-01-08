@@ -220,6 +220,8 @@ class EM3DUW(EMUWPhysModule):
         self['Boundary'] = EM3DUW_DefBdry()
         self['Pair'] = EM3DUW_DefPair()
 
+        self._use_amr = False
+
     @property
     def dep_vars(self):
         ret = ['E', 'B', 'Et', 'Bt']
@@ -445,6 +447,9 @@ class EM3DUW(EMUWPhysModule):
         torder = order + delta_order
         return torder
 
+    def set_dpg_amr(self):
+        self._use_amr = True
+
     def get_diagform_callable(self, fes_arr):
         def callable(fes_arr=fes_arr):
             if use_parallel:
@@ -470,6 +475,8 @@ class EM3DUW(EMUWPhysModule):
 
             if self.static_cond:
                 form.EnableStaticCondensation()
+            if self._use_amr:
+                form.StoreMatrices()  # needed for AMR
 
             return form
 
