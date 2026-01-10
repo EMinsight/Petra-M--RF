@@ -109,10 +109,10 @@ class EM3DUW_Vac(EM3DUW_Domain):
         # a.StoreMatrices()  # needed for AMR
 
         #  attempt to increase the integration order to avoid non SPD G-matrix
-        # phys = self.get_root_phys()
-        # mesh = engine.emeshes[phys.emesh_idx]
-        # geom = mesh.GetElementGeometry(0)
-        # ir = mfem.IntRules.Get(geom, 2*phys.test_order+2)
+        #phys = self.get_root_phys()
+        #mesh = engine.emeshes[phys.emesh_idx]
+        #geom = mesh.GetElementGeometry(0)
+        #ir = mfem.IntRules.Get(geom, 2*phys.test_order+2)
         ir = None
 
         # xxxxxx -i ω ϵ (E , G) = i (- ω ϵ E, G)

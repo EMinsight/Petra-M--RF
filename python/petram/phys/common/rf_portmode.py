@@ -347,19 +347,10 @@ class C_Et_CircularTE(C_CircularTE):
         nr = self.ax1*cos(th) + self.ax2*sin(th)
         nt = -self.ax1*sin(th) + self.ax2*cos(th)
 
-        #r = (x - self.ctr)
-        #nr = r/sqrt(sum(r**2))
-        #nt = cross(self.norm, nr)
-        #rr = sqrt(sum(r**2))
-        #th = arctan2(sum(nr*self.ax2), sum(nr*self.ax1))
-
         jv_x = self.compute_jv_x(rr)
 
         from scipy.special import jvp
-        # Er =  self.m*self.amp/rr*jv(self.m, rr*self.kc)*sin(self.m*th)
-        # Et =  self.kc*self.amp*jvp(self.m, rr*self.kc)*cos(self.m*th)
-
-        #Er = self.m/rr*jv(self.m, rr*self.kc)*exp(1j*self.m*th)
+        
         if self.m > 0:
             Er = self.m * jv_x*exp(1j*self.m*th-1j*pi/2)
         else:
