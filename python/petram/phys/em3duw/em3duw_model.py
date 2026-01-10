@@ -97,7 +97,14 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
 
         TrialSpace, TestSpace = self.space_idx()
         one = mfem.ConstantCoefficient(1.0)
-        one_scaled = mfem.ConstantCoefficient(1)
+
+        freq, omega = self.get_root_phys().get_freq_omega()
+        enorm, munorm = self.get_root_phys().get_coeff_norm()
+        c = np.sqrt(1/enorm/munorm)
+        one_scaled =   omega**2/c**2
+        fac = 1.0
+        dprint1("adjoint graph norm L2 scale factor: ", fac, "x", one_scaled)
+        one_scaled = mfem.ConstantCoefficient(fac*one_scaled)
 
         # < n×Ĥ ,G>
         # < n×Ê,F>
@@ -156,10 +163,10 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
         a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
                             TestSpace["G_space"],
                             TestSpace["G_space"])
-        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one), None,
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one_scaled), None,
                             TestSpace["G_space"],
                             TestSpace["G_space"])
-        a.AddTestIntegrator(mfem.CurlCurlIntegrator(one_scaled), None,
+        a.AddTestIntegrator(mfem.CurlCurlIntegrator(one), None,
                             TestSpace["F_space"],
                             TestSpace["F_space"])
         a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one_scaled), None,
