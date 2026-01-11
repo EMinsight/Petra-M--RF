@@ -102,7 +102,7 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
         enorm, munorm = self.get_root_phys().get_coeff_norm()
         c = np.sqrt(1/enorm/munorm)
         one_scaled =   omega**2/c**2
-        fac = 0.1
+        fac = 5
         dprint1("adjoint graph norm L2 scale factor: ", fac, "x", one_scaled)
         one_scaled = mfem.ConstantCoefficient(fac*one_scaled)
 
