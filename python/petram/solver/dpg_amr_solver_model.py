@@ -1,9 +1,17 @@
+from numpy import sqrt, log
+
 from petram.solver.std_solver_model import StdSolver, StandardSolver
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('DpgAmrSolver')
 rprint = debug.regular_print('DpgAmrSolver')
 
+from petram.mfem_config import use_parallel
+if use_parallel:
+    from petram.helper.mpi_recipes import *
+    import mfem.par as mfem
+else:
+    import mfem.ser as mfem
 
 class DpgAmrSolver(StdSolver):
     @classmethod
@@ -21,7 +29,7 @@ class DpgAmrSolver(StdSolver):
         return v
 
     def panel1_param(self):
-        ret = super(DpgAmrSolver, self).panel1_param()
+        ret = list(super(DpgAmrSolver, self).panel1_param())
 
         ret.extend([("#meth adapt",   self.amr_max_num,  0, {}, ),
                     ("thres.",   self.amr_th,  0, {}),])
@@ -29,15 +37,16 @@ class DpgAmrSolver(StdSolver):
         return ret
 
     def get_panel1_value(self):
-        value = super(DpgAmrSolver, self). get_panel1_value()
-        value.extend([self.amr_max_num, self.amr_th])
+        value = list(super(DpgAmrSolver, self). get_panel1_value())
+        value.extend([str(self.amr_max_num),
+                      str(self.amr_th)])
 
         return value
 
     def import_panel1_value(self, v):
         super(DpgAmrSolver, self).import_panel1_value(v[:-2])
-        self.amr_max_num = v[-2]
-        self.amr_th = v[-1]
+        self.amr_max_num = int(v[-2])
+        self.amr_th = float(v[-1])
 
     @debug.use_profiler
     def run(self, engine, is_first=True, return_instance=False):
@@ -54,7 +63,7 @@ class DpgAmrSolver(StdSolver):
 
         instance.configure_probes(self.probe)
 
-        for i in range(self.amr_max_num):
+        for it in range(self.amr_max_num):
             if self.init_only:
                 engine.run_fill_X_block()
                 engine.sol = engine.assembled_blocks[1][0]
@@ -81,7 +90,7 @@ class DpgAmrSolver(StdSolver):
 
             instance.save_probe()
 
-            instance.run_amr(self.amr_th)
+            instance.run_amr(self.amr_th, it)
 
         self.instance = instance
 
@@ -91,7 +100,7 @@ class DpgAmrSolver(StdSolver):
 
 class DpgAmrSolverInstance(StandardSolver):
     def __init__(self, *args, **kwargs):
-        suepr(DpgAmrSolverInstance, self).__init__(*args, **kwargs)
+        super(DpgAmrSolverInstance, self).__init__(*args, **kwargs)
 
         self.elements_to_refine = mfem.intArray()
         self.dpg_phys = []
@@ -99,7 +108,7 @@ class DpgAmrSolverInstance(StandardSolver):
     def set_amr(self):
         phys_target = self.get_phys()
         for phys in phys_target:
-            if has_attr(phys, 'set_dpg_amr'):
+            if hasattr(phys, 'set_dpg_amr'):
                 phys.set_dpg_amr()
                 if phys not in self.dpg_phys:
                     self.dpg_phys.append(phys)
@@ -131,23 +140,26 @@ class DpgAmrSolverInstance(StandardSolver):
         self.assembled = True
         return M_changed
 
-    def run_amr(self, amr_th)
-    from petram.mfem_config import use_parallel
+    def run_amr(self, amr_th, it):
 
-    engine = self.engine
-    dpg_phys = self.dpg_phys[0]
+        engine = self.engine
+        dpg_phys = self.dpg_phys[0]
 
-    # compute_residul
-    for physname in engine.form_info:
-        phys, ifess, rifess, depvars = engine.form_info[physname]
+        # compute_residul
+        for physname in engine.form_info:
+            phys, ifess, rifess, depvars = engine.form_info[physname]
 
-        if phys == dpg_phys:
-            self.do_amr(engine, phys, ifess, rifess, depvars, amr_th)
+            if phys == dpg_phys:
+                self.do_amr(engine, phys, ifess, rifess, depvars, amr_th, it)
 
-    def do_amr(self, engine, phys, ifess, rifess, depvars, amr_th):
+    def do_amr(self, engine, phys, ifess, rifess, depvars, amr_th, it):
+
+
+        trial_fes = [engine.fespaces[name] for name in depvars]
 
         a = engine.r_a[ifess[0], rifess[0]]
-        x = engine.gf_alloc[(engine.access_idx, physname)].blockvector
+        gf_block = engine.gf_alloc[(engine.access_idx, phys.name())]
+        x = gf_block.blockvector
 
         residuals = a.ComputeResidual(x)
 
@@ -159,12 +171,29 @@ class DpgAmrSolverInstance(StandardSolver):
             maxresidual = MPI.COMM_WORLD.allreduce(maxresidual, op=MPI.MAX)
             globalresidual = MPI.COMM_WORLD.allreduce(
                 globalresidual, op=MPI.SUM)
-            globalresidual = np.sqrt(globalresidual)
 
-        dprint1("Maxl Residual: ", maxresidual)
+        globalresidual = sqrt(globalresidual)
+
+        dprint1("Max Residual: ", maxresidual)
         dprint1("Global Residual: ", globalresidual)
 
-        self.residual = residual
+        dofs = 0
+        for i in range(len(trial_fes)):
+            dofs += trial_fes[i].GetTrueVSize()
+
+        if use_parallel:
+            dofs = MPI.COMM_WORLD.allreduce(
+                dofs, op=MPI.SUM)
+
+        rate_res = 0.0 if it == 0 else 3 * \
+            log(self.res0/globalresidual)/log(self.dof0/dofs)
+
+        self.res0 = globalresidual
+        self.dof0 = dofs
+
+        dprint1("#it, dofs, res0, rate_res", "{:5d}".format(it), ","
+                "{:10d}".format(self.dof0),  ",", "{:.3e}".format(self.res0),
+                ",", "{:.2f}".format(rate_res))
 
         emesh_idx = phys.emesh_idx
         mesh = engine.emeshes[emesh_idx]
@@ -172,14 +201,27 @@ class DpgAmrSolverInstance(StandardSolver):
         elements_to_refine = self.elements_to_refine
         if amr_th > 0.0:
             elements_to_refine.SetSize(0)
-            for iel in range(pmesh.GetNE()):
-                if residuals[iel] > theta * maxresidual:
+            for iel in range(mesh.GetNE()):
+                if residuals[iel] > amr_th * maxresidual:
                     elements_to_refine.Append(iel)
             mesh.GeneralRefinement(elements_to_refine, 1, 1)
+            num_ref = elements_to_refine.Size()
         else:
             mesh.UniformRefinement()
+            num_ref = mesh.GetNE()
 
-        trial_fes = engine.fepaces[name] for name in depvars]
-            for i in range(len(trial_fes)):
-        trial_fes[i].Update(False)
-            a.Update()
+        if use_parallel:
+            num_ref = MPI.COMM_WORLD.allreduce(
+                num_ref, op=MPI.SUM)
+        dprint1("number of refined elements:", num_ref)
+
+        for fes in trial_fes:
+            fes.Update(False)
+
+        a.Update()
+        gf_block.allocate()
+
+        for ifes in ifess:
+            engine.r_b[ifes].Update()
+            if phys.is_complex():
+                engine.i_b[ifes].Update()
