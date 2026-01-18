@@ -49,6 +49,9 @@ class Einit(VectorPhysCoefficient):
         return val
 
 
+w_c2_txt = '(\u03BD' + '/c)' + '\u00B2'
+
+
 class EM3DUW_DefDomain(EM3DUW_Domain):
     can_delete = False
     nlterms = []
@@ -61,19 +64,24 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
         v['sel_readonly'] = True
         v['sel_index'] = ['all']
         v['sel_index_txt'] = 'all'
+        v['l2_scale_txt'] = '1.0'
         return v
 
     def panel1_param(self):
-        return [['Common contribs.',   "",  2, {}], ]
+        return [['Weak contribs.',   "",  2, {}],
+                ["L2 scaler A (Sc = A"+w_c2_txt+")", "", 0, {}], ]
 
     def get_panel1_value(self):
-        return ["(E,∇ × F), (H,∇ × G),  \n(∇×G ,∇× δG), (G,δG), (∇×F,∇×δF), (F,δF) \n<n×Ĥ ,G>, < n×Ê,F>"]
+        return ["(E,∇ × F) +  (H,∇ × G) +   \n Sc(∇×G ,∇× δG) +  (G,δG) +  Sc(∇×F,∇×δF) +  (F,δF) + \n<n×Ĥ ,G> +  < n×Ê,F>",
+                self.l2_scale_txt]
 
     def import_panel1_value(self, v):
-        pass
+        self.l2_scale_txt = v[-1]
+        return v
 
     def panel1_tip(self):
-        return None
+        return ("E and H are range. F, G, δG and δF are test functions."
+                "Factor A in the coefficeint of L2 term (Sc= A"+w_c2_txt+") in adjoint graph norm. Can be array in \n the context of GMG and give comma separated values. (from low to high orders), ")
 
     def get_possible_domain(self):
         return []
@@ -101,8 +109,20 @@ class EM3DUW_DefDomain(EM3DUW_Domain):
         freq, omega = self.get_root_phys().get_freq_omega()
         enorm, munorm = self.get_root_phys().get_coeff_norm()
         c = np.sqrt(1/enorm/munorm)
-        one_scaled =   omega**2/c**2
-        fac = 5
+        one_scaled = omega**2/c**2
+
+        ###
+        lvl = engine.level_idx
+        try:
+            value = np.atleast_1d(eval(self.l2_scale_txt))
+        except BaseException:
+            assert False, "Faild to evaluted L2 scaler : " + self.l2_scale_txt
+
+        if len(value) > lvl:
+            fac = value[lvl]
+        else:
+            fac = value[-1]
+
         dprint1("adjoint graph norm L2 scale factor: ", fac, "x", one_scaled)
         one_scaled = mfem.ConstantCoefficient(fac*one_scaled)
 
@@ -279,7 +299,7 @@ class EM3DUW(EMUWPhysModule):
         v["dep_vars_suffix"] = ''
         v["static_cond"] = False
 
-        self._use_amr = False        
+        self._use_amr = False
         return v
 
     def panel1_param(self):
