@@ -298,6 +298,7 @@ class EM3DUW(EMUWPhysModule):
         v["ind_vars"] = 'x, y, z'
         v["dep_vars_suffix"] = ''
         v["static_cond"] = False
+        v["delta_order_txt"] = "1"
 
         self._use_amr = False
         return v
@@ -470,11 +471,8 @@ class EM3DUW(EMUWPhysModule):
         return False
 
     @property
-    def test_order(self):
-        order = self.order
-        delta_order = 1
-        torder = order + delta_order
-        return torder
+    def delta_order(self):
+        return eval(self.delta_order_txt)
 
     def set_dpg_amr(self):
         self._use_amr = True
@@ -487,8 +485,10 @@ class EM3DUW(EMUWPhysModule):
             else:
                 dpg_form = mfem.dpg.ComplexDPGWeakForm
 
-            order = self.order
-            test_order = self.test_order
+            # retrive order from FESpace. Don't take it from
+            # self.order since GMG refinement makes them disagree.
+            order = fes_arr[2].FEColl().GetOrder()
+            test_order = order + self.delta_order
 
             dim = 3
 
