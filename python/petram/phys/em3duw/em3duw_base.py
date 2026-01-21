@@ -94,7 +94,7 @@ class EM3DUW_Domain(Domain, Phys):
             if coeffi is not None:
                 coeffi = self.restrict_coeff(coeffi, engine, matrix=True)
         else:
-            assert False, "Unknown coefficient type: " + str(type(coeff[0]))
+            assert False, "Unknown coefficient type: " + str(type(coeff))
 
         itgr = integrator(coeffr)
         itgr._linked_coeff = coeffr
