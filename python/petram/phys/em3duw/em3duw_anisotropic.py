@@ -1,6 +1,6 @@
 '''
    "Anisotropic" region:
-      epsilon_r, mu_r, sigma are tensor 
+      epsilon_r, mu_r, sigma are tensor
 
 '''
 from petram.phys.vtable import VtableElement, Vtable
@@ -108,100 +108,7 @@ class EM3DUW_Anisotropic(EM3DUW_Domain):
             return
 
         cf1, cf2, cf3, cf4, cf5, cf6 = self.get_coeffs()
-        TrialSpace, TestSpace = self.space_idx()
-        # a.StoreMatrices()  # needed for AMR
-
-        #  attempt to increase the integration order to avoid non SPD G-matrix
-        # phys = self.get_root_phys()
-        # mesh = engine.emeshes[phys.emesh_idx]
-        # geom = mesh.GetElementGeometry(0)
-        # ir = mfem.IntRules.Get(geom, 2*phys.test_order+2)
-        ir = None
-
-        # xxxxxx -i ω ϵ (E , G) = i (- ω ϵ E, G)
-        # i ω ϵ (E , G)
-        self.add_dpg_integrator(engine, cf1, a.AddTrialIntegrator,
-                                mfem.VectorFEMassIntegrator,
-                                TrialSpace["E_space"],
-                                TestSpace["G_space"],
-                                transpose=True, ir=ir)
-        # a.AddTrialIntegrator(None,
-        #                     mfem.TransposeIntegrator(
-        #                         mfem.VectorFEMassIntegrator(cf1)),
-        #                     TrialSpace["E_space"],
-        #                     TestSpace["G_space"])
-
-        # xxxxx  i ω μ (H, F)
-        # -i ω μ (H, F)
-        self.add_dpg_integrator(engine, cf2, a.AddTrialIntegrator,
-                                mfem.VectorFEMassIntegrator,
-                                TrialSpace["H_space"],
-                                TestSpace["F_space"],
-                                transpose=True, ir=ir)
-        # a.AddTrialIntegrator(None, mfem.TransposeIntegrator(
-        #    mfem.VectorFEMassIntegrator(cf2)),
-        #    TrialSpace["H_space"],
-        #    TestSpace["F_space"])
-
-        # (1,1)
-        # |μ|^2 ω^2 (F,δF)
-        self.add_dpg_integrator(engine, cf6, a.AddTestIntegrator,
-                                mfem.VectorFEMassIntegrator,
-                                TestSpace["F_space"],
-                                TestSpace["F_space"], ir=ir)
-        # a.AddTestIntegrator(mfem.VectorFEMassIntegrator(mu2omeg2_cf), None,
-        #                    TestSpace["F_space"],
-        #                    TestSpace["F_space"])
-
-        # (2, 1)
-        # -i ω μ (F,∇ × δG) = i (F, -ω μ ∇ × δ G)
-        # (i ω μ* F,∇ × δG)
-        self.add_dpg_integrator(engine, cf4, a.AddTestIntegrator,
-                                mfem.MixedVectorWeakCurlIntegrator,
-                                TestSpace["F_space"],
-                                TestSpace["G_space"], ir=ir)
-        # a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf3),
-        #                    TestSpace["F_space"],
-        #                    TestSpace["G_space"])
-
-        # xxxx -i ω ϵ (∇ × F, δG)
-        # (i ω ϵ ∇ × F, δG)
-        self.add_dpg_integrator(engine, cf1, a.AddTestIntegrator,
-                                mfem.MixedVectorCurlIntegrator,
-                                TestSpace["F_space"],
-                                TestSpace["G_space"], ir=ir)
-        # a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf1),
-        #                    TestSpace["F_space"],
-        #                    TestSpace["G_space"])
-        # (1, 2)
-        # *****i ω μ (∇ × G,δF)
-        # (-i ω μ ∇ × G,δF)
-        self.add_dpg_integrator(engine, cf2, a.AddTestIntegrator,
-                                mfem.MixedVectorCurlIntegrator,
-                                TestSpace["G_space"],
-                                TestSpace["F_space"],)
-        # a.AddTestIntegrator(None, mfem.MixedVectorCurlIntegrator(cf2),
-        #                    TestSpace["G_space"],
-        #                    TestSpace["F_space"])
-
-        # xxxxx i ω ϵ (G, ∇ × δF )
-        # (-i ω ϵ* (G, ∇ × δF )
-        self.add_dpg_integrator(engine, cf3, a.AddTestIntegrator,
-                                mfem.MixedVectorWeakCurlIntegrator,
-                                TestSpace["G_space"],
-                                TestSpace["F_space"],)
-        # a.AddTestIntegrator(None, mfem.MixedVectorWeakCurlIntegrator(cf4),
-        #                    TestSpace["G_space"],
-        #                    TestSpace["F_space"])
-        # (2, 2)
-        # |ϵ|^2 ω^2 (G,δG)
-        self.add_dpg_integrator(engine, cf5, a.AddTestIntegrator,
-                                mfem.VectorFEMassIntegrator,
-                                TestSpace["G_space"],
-                                TestSpace["G_space"],)
-        # a.AddTestIntegrator(mfem.VectorFEMassIntegrator(cf5), None,
-        #                    TestSpace["G_space"],
-        #                    TestSpace["G_space"])
+        self.add_bf_epsmu_contribution(engine, a, cf1, cf2, cf3, cf4, cf5, cf6)
 
     def add_domain_variables(self, v, n, suffix, ind_vars):
         from petram.helper.variables import add_constant
