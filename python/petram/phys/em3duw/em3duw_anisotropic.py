@@ -71,7 +71,14 @@ class EM3DUW_Anisotropic(EM3DUW_Domain):
         else:
             return False
 
-    def get_coeffs(self):
+    @property
+    def jited_coeff(self):
+        return self._jited_coeff
+
+    def compile_coeffs(self):
+        self._jited_coeff = self.get_dpg_coeffs()
+
+    def get_dpg_coeffs(self):
         freq, omega = self.get_root_phys().get_freq_omega()
         enorm, munorm = self.get_root_phys().get_coeff_norm()
 
@@ -94,8 +101,8 @@ class EM3DUW_Anisotropic(EM3DUW_Domain):
         cf3 = eps_cf.conj()*(-1j*omega/c)
         cf4 = mu_cf.conj()*(1j*omega/c)
 
-        cf5 = eps_cf*eps_cf.conj()*(omega**2/c**2)
-        cf6 = mu_cf*mu_cf.conj()*(omega**2/c**2)
+        cf5 = eps_cf.dot(eps_cf.conj())*(omega**2/c**2)
+        cf6 = mu_cf.dot(mu_cf.conj())*(omega**2/c**2)
 
         return cf1, cf2, cf3, cf4, cf5, cf6
 
@@ -107,7 +114,7 @@ class EM3DUW_Anisotropic(EM3DUW_Domain):
         else:
             return
 
-        cf1, cf2, cf3, cf4, cf5, cf6 = self.get_coeffs()
+        cf1, cf2, cf3, cf4, cf5, cf6 = self.jited_coeff        
         self.add_bf_epsmu_contribution(engine, a, cf1, cf2, cf3, cf4, cf5, cf6)
 
     def add_domain_variables(self, v, n, suffix, ind_vars):

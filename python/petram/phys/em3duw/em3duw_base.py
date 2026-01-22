@@ -89,7 +89,7 @@ class EM3DUW_Domain(Domain, Phys):
             coeffr = self.restrict_coeff(coeffr, engine, vec=True)
             if coeffi is not None:
                 coeffi = self.restrict_coeff(coeffi, engine, vec=True)
-        elif isinstance(coeff, mfem.MatrixCoefficient):
+        elif isinstance(coeffr, mfem.MatrixCoefficient):
             coeffr = self.restrict_coeff(coeffr, engine, matrix=True)
             if coeffi is not None:
                 coeffi = self.restrict_coeff(coeffi, engine, matrix=True)

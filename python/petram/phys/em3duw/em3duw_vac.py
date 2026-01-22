@@ -68,6 +68,13 @@ class EM3DUW_Vac(EM3DUW_Domain):
         else:
             return False
 
+    @property
+    def jited_coeff(self):
+        return self._jited_coeff
+
+    def compile_coeffs(self):
+        self._jited_coeff = self.get_dpg_coeffs()
+        
     def get_dpg_coeffs(self):
         freq, omega = self.get_root_phys().get_freq_omega()
         enorm, munorm = self.get_root_phys().get_coeff_norm()
@@ -104,7 +111,7 @@ class EM3DUW_Vac(EM3DUW_Domain):
         else:
             return
 
-        cf1, cf2, cf3, cf4, cf5, cf6 = self.get_dpg_coeffs()
+        cf1, cf2, cf3, cf4, cf5, cf6 = self.jited_coeff
         self.add_bf_epsmu_contribution(engine, a, cf1, cf2, cf3, cf4, cf5, cf6)
 
 
