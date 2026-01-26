@@ -42,9 +42,9 @@ def EpsSigmaCoeff(exprs1, exprs2, ind_vars, l, g, omega, e_norm):
     # (e_r e0 + i sgima/w)/e_norm
     #   cnorm is typically e0
     #
-    coeff1 = MCoeff(exprs1, ind_vars, l, g,
+    coeff1 = MCoeff(3, exprs1, ind_vars, l, g,
                     return_complex=True, scale=epsilon0/e_norm)
-    coeff2 = MCoeff(exprs2, ind_vars, l, g,
+    coeff2 = MCoeff(3, exprs2, ind_vars, l, g,
                     return_complex=True, scale=1j/omega/e_norm)
 
     return coeff1 + coeff2
@@ -53,7 +53,7 @@ def EpsSigmaCoeff(exprs1, exprs2, ind_vars, l, g, omega, e_norm):
 def MuCoeff(exprs, ind_vars, l, g, omega, mu_norm):
     # mu_r *mu_0/mu_norm
     fac = mu0/mu_norm
-    coeff = MCoeff(exprs, ind_vars, l, g, return_complex=True, scale=fac)
+    coeff = MCoeff(3, exprs, ind_vars, l, g, return_complex=True, scale=fac)
     return coeff
 
 
@@ -82,6 +82,8 @@ class EM3DUW_Anisotropic(EM3DUW_Domain):
         freq, omega = self.get_root_phys().get_freq_omega()
         enorm, munorm = self.get_root_phys().get_coeff_norm()
 
+        enorm = enorm*500.  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
         dprint1("coefficient normalization, e_n, mu_n, c_n",  enorm, munorm,
                 np.sqrt(1/enorm/munorm))
 
@@ -98,11 +100,11 @@ class EM3DUW_Anisotropic(EM3DUW_Domain):
         cf1 = eps_cf*(1j*omega/c)
         cf2 = mu_cf*(-1j*omega/c)
 
-        cf3 = eps_cf.conj()*(-1j*omega/c)
-        cf4 = mu_cf.conj()*(1j*omega/c)
+        cf3 = eps_cf.transpose().conj()*(-1j*omega/c)
+        cf4 = mu_cf.transpose().conj()*(1j*omega/c)
 
-        cf5 = eps_cf.dot(eps_cf.conj())*(omega**2/c**2)
-        cf6 = mu_cf.dot(mu_cf.conj())*(omega**2/c**2)
+        cf5 = eps_cf.dot(eps_cf.transpose().conj())*(omega**2/c**2)
+        cf6 = mu_cf.dot(mu_cf.transpose().conj())*(omega**2/c**2)
 
         return cf1, cf2, cf3, cf4, cf5, cf6
 
@@ -114,8 +116,29 @@ class EM3DUW_Anisotropic(EM3DUW_Domain):
         else:
             return
 
-        cf1, cf2, cf3, cf4, cf5, cf6 = self.jited_coeff        
+        cf1, cf2, cf3, cf4, cf5, cf6 = self.jited_coeff
         self.add_bf_epsmu_contribution(engine, a, cf1, cf2, cf3, cf4, cf5, cf6)
+
+        '''
+        TrialSpace, TestSpace = self.space_idx()
+
+
+        freq, omega = self.get_root_phys().get_freq_omega()
+        enorm, munorm = self.get_root_phys().get_coeff_norm()
+        c = np.sqrt(1/enorm/munorm)
+        one_scaled = omega**2/c**2
+        fac = 500.
+        one_scaled = mfem.ConstantCoefficient(fac*one_scaled)
+
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one_scaled), None,
+                            TestSpace["G_space"],
+                            TestSpace["G_space"])
+        a.AddTestIntegrator(mfem.VectorFEMassIntegrator(one_scaled), None,
+                            TestSpace["F_space"],
+                            TestSpace["F_space"])
+
+        '''
+
 
     def add_domain_variables(self, v, n, suffix, ind_vars):
         from petram.helper.variables import add_constant
