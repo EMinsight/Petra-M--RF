@@ -82,7 +82,7 @@ class EM3DUW_Anisotropic(EM3DUW_Domain):
         freq, omega = self.get_root_phys().get_freq_omega()
         enorm, munorm = self.get_root_phys().get_coeff_norm()
 
-        enorm = enorm*500.  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        #enorm = enorm*500.  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         dprint1("coefficient normalization, e_n, mu_n, c_n",  enorm, munorm,
                 np.sqrt(1/enorm/munorm))
