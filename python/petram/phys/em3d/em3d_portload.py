@@ -127,7 +127,7 @@ class EM3D_PortLoad(EM3D_Bdry):
         root_bdr = self.get_root_phys()['Boundary']
 
         Smat, port_idx, ext_drive = self.vt.make_value_or_expression(self)
-        #print(Smat, port_idx, ext_drive)
+        # print(Smat, port_idx, ext_drive)
         target = []
         for mm in root_bdr.get_children():
             if not mm.enabled:
@@ -174,15 +174,18 @@ class EM3D_PortLoad(EM3D_Bdry):
         for x in ports:
             mm = x[1]
             C_Et, C_jwHt = mm.get_coeff_cls()
+            cnorm = self.get_root_phys().get_coeff_norm()
             inc_amp, inc_phase, eps, mur = mm.vt.make_value_or_expression(mm)
             lf1 = engine.new_lf(fes)
-            Ht1 = C_jwHt(3, 180., mm, real=True, eps=eps, mur=mur)
+            Ht1 = C_jwHt(3, mm, real=True, eps=eps, mur=mur, phase=180., cnorm=cnorm,
+                         m=self.mn[0], n=self.mn[1])
             Ht2 = mm.restrict_coeff(Ht1, engine, vec=True, idx=mm._sel_index)
             intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht2)
             lf1.AddBoundaryIntegrator(intg)
             lf1.Assemble()
             lf1i = engine.new_lf(fes)
-            Ht3 = C_jwHt(3, 180., mm, real=False, eps=eps, mur=mur)
+            Ht3 = C_jwHt(3, mm, real=False, eps=eps, mur=mur, phase=180., cnorm=cnorm,
+                         m=self.mn[0], n=self.mn[1])
             Ht4 = self.restrict_coeff(Ht3, engine, vec=True, idx=mm._sel_index)
             intg = mfem.VectorFEBoundaryTangentLFIntegrator(Ht4)
             lf1i.AddBoundaryIntegrator(intg)
