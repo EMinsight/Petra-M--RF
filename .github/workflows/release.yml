@@ -16,7 +16,11 @@ jobs:
           echo This job does not specify a container.
           echo It runs directly on the virtual machine.
           #
+<<<<<<< Updated upstream
           git clone https://USERNAME:$GH_TOKEN@github.com/piScope/Petra-M--RF.git
+=======
+          git clone https://github.com/piScope/Petra-M--RF.git
+>>>>>>> Stashed changes
           cd Petra-M--RF
           #
           REF=$(echo ${GITHUB_REF#refs/heads/})
