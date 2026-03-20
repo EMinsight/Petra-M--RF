@@ -288,7 +288,7 @@ class EM3D(EMPhysModule):
 
     def get_possible_pair(self):
         if EM3D._possible_constraints is None:
-            self._set_possible_constraints()
+            self._set_possible_constraints('em3d')
         return EM3D._possible_constraints['pair']
 
     '''
